@@ -97,7 +97,7 @@ struct SITUATION
 };
 
 #pragma enumsize(4)
-typedef enum CHUNK_TYPE
+typedef enum BLOCK_TYPE
 {
     F95 = "F95:",
     G95 = "G95:",
@@ -105,13 +105,13 @@ typedef enum CHUNK_TYPE
     J95 = "J95:",
     S98 = "S98:"
 
-} CHUNK_TYPE;
+} BLOCK_TYPE;
 
 #pragma show()
 
 struct F95
 {
-    CHUNK_TYPE id;                                      // 0x00
+    BLOCK_TYPE id;                                      // 0x00
     DWORD size;                                         // 0x04 // size of data // 0x3C9D
     struct SUBSTITUTION_DATA        substitutions;      // 0x08
     struct SITUATION                situations[2520];   // 0x28
@@ -119,7 +119,7 @@ struct F95
     struct SITUATION                patSituations[60];  // 0x3B39
     DWORD                           useAudibles;        // 0x3CA1
 
-    __verify(id == CHUNK_TYPE.F95);
+    __verify(id == BLOCK_TYPE.F95);
     __verify(size == 0x3C9D);
     __verify(fieldGoalRange >= 0x05 && fieldGoalRange <= 0x32);
     __verify(useAudibles == 0x00 || useAudibles == 0x01);
@@ -127,11 +127,11 @@ struct F95
 
 struct G95
 {
-    CHUNK_TYPE      id;                 // 0x00
+    BLOCK_TYPE      id;                 // 0x00
     DWORD           size;               // 0x04 // size of data
     BYTE            data[size];         // 0X08
 
-    __verify(id == CHUNK_TYPE.G95);
+    __verify(id == BLOCK_TYPE.G95);
 };
 
 #pragma enumsize(1)
@@ -145,16 +145,16 @@ typedef enum PROFILE_TYPE
 
 struct I95
 {
-    CHUNK_TYPE      id;                 // 0x00
+    BLOCK_TYPE      id;                 // 0x00
     DWORD           size;               // 0x04 // size of data // 0x0A
     PROFILE_TYPE    type;               // 0x08
     WORD            reserved;           // 0x09 // 0x0000
     BYTE            fieldGoalRange;     // 0x0B
-    WORD            numGamePlanChunks;  // 0x0C (guessing)
+    WORD            numGamePlanBlocks;  // 0x0C (guessing)
     DWORD           useAudibles;        // 0x0E
                                         // 0x12
 
-    __verify(id == CHUNK_TYPE.I95);
+    __verify(id == BLOCK_TYPE.I95);
     __verify(size == 0x0A);
     __verify(fieldGoalRange >= 0x05 && fieldGoalRange <= 0x32);
     __verify(useAudibles == 0x00 || useAudibles == 0x01);
@@ -162,7 +162,7 @@ struct I95
 
 struct J95
 {
-    CHUNK_TYPE      id;                 // 0x00
+    BLOCK_TYPE      id;                 // 0x00
     DWORD           size;               // 0x04 // size of data // 0x07
     PROFILE_TYPE    type;               // 0x08
     WORD            numCustomPlays;     // 0x09
@@ -170,17 +170,17 @@ struct J95
     WORD            numSpecialPlays;    // 0x0D
                                         // 0x0F
 
-    __verify(id == CHUNK_TYPE.J95);
+    __verify(id == BLOCK_TYPE.J95);
     __verify(size == 0x07);
 };
 
 struct S98
 {
-    CHUNK_TYPE      id;                 // 0x00
+    BLOCK_TYPE      id;                 // 0x00
     DWORD           size;               // 0x04 // size of data
     BYTE            mapFilename[size];  // 0x08
 
-    __verify(id == CHUNK_TYPE.S98);
+    __verify(id == BLOCK_TYPE.S98);
 };
 
 struct PRFFILE

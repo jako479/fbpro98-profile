@@ -1,3 +1,5 @@
-Don't forget:
+# TODO
 
-1. Create a spec in markdown format for .prf file format, much like PLN.md in fbpro98-gameplan
+- **Write/update API** — deferred until the shape of mutation operations is
+  settled. `schema.py` and `model.py` are already written with a writer in mind.
+- **ruff / pyright cleanup pass** — 5 ruff findings, 6 pyright findings outstanding.
