@@ -5,16 +5,16 @@ from dataclasses import replace
 import pytest
 
 from fbpro98_profile import (
+    CategoryWeights,
     Profile,
     ProfileType,
-    Situation,
     SubstitutionPair,
     SubstitutionSettings,
 )
 
 
-def _default_situation(*, play_category: int = 0x00, stop_clock: bool = False, weight1: int = 0) -> Situation:
-    return Situation(
+def _default_weights(*, play_category: int = 0x00, stop_clock: bool = False, weight1: int = 0) -> CategoryWeights:
+    return CategoryWeights(
         play_category1=play_category,
         weight1=weight1,
         stop_clock=stop_clock,
@@ -25,16 +25,16 @@ def _default_situation(*, play_category: int = 0x00, stop_clock: bool = False, w
     )
 
 
-def _empty_situations(count: int) -> tuple[Situation, ...]:
-    return tuple(_default_situation() for _ in range(count))
+def _empty_weights(count: int) -> tuple[CategoryWeights, ...]:
+    return tuple(_default_weights() for _ in range(count))
 
 
 def _make_profile(*, profile_type: ProfileType = ProfileType.OFFENSE, **overrides) -> Profile:
     base = Profile(
         profile_type=profile_type,
         substitutions=SubstitutionSettings.default(),
-        situations=_empty_situations(Profile.NUMBER_SITUATIONS),
-        pat_situations=_empty_situations(Profile.NUMBER_PAT_SITUATIONS),
+        category_weights=_empty_weights(Profile.NUMBER_SITUATIONS),
+        pat_category_weights=_empty_weights(Profile.NUMBER_PAT_SITUATIONS),
         field_goal_range=35,
         use_audibles=False,
     )
@@ -89,11 +89,11 @@ def test_substitution_settings_default_uses_80_90() -> None:
         assert group.in_percent == 90
 
 
-# ---------- Situation ----------
+# ---------- CategoryWeights ----------
 
 
-def test_situation_accepts_valid_values() -> None:
-    situation = Situation(
+def test_category_weights_accepts_valid_values() -> None:
+    weights = CategoryWeights(
         play_category1=0x07,
         weight1=10,
         stop_clock=True,
@@ -102,13 +102,13 @@ def test_situation_accepts_valid_values() -> None:
         play_category3=0x00,
         weight3=0,
     )
-    assert situation.weight1 == 10
-    assert situation.stop_clock is True
+    assert weights.weight1 == 10
+    assert weights.stop_clock is True
 
 
-def test_situation_rejects_play_category_above_max() -> None:
+def test_category_weights_rejects_play_category_above_max() -> None:
     with pytest.raises(ValueError, match="play_category1"):
-        Situation(
+        CategoryWeights(
             play_category1=0x1B,
             weight1=0,
             stop_clock=False,
@@ -119,9 +119,9 @@ def test_situation_rejects_play_category_above_max() -> None:
         )
 
 
-def test_situation_rejects_weight_above_10() -> None:
+def test_category_weights_rejects_weight_above_10() -> None:
     with pytest.raises(ValueError, match="weight2"):
-        Situation(
+        CategoryWeights(
             play_category1=0x00,
             weight1=0,
             stop_clock=False,
@@ -132,9 +132,9 @@ def test_situation_rejects_weight_above_10() -> None:
         )
 
 
-def test_situation_rejects_negative_weight() -> None:
+def test_category_weights_rejects_negative_weight() -> None:
     with pytest.raises(ValueError, match="weight3"):
-        Situation(
+        CategoryWeights(
             play_category1=0x00,
             weight1=0,
             stop_clock=False,
@@ -160,14 +160,14 @@ def test_profile_accepts_valid_defense_construction() -> None:
     assert profile.is_offense is False
 
 
-def test_profile_situations_wrong_length_raises() -> None:
-    with pytest.raises(ValueError, match="situations must have exactly"):
-        _make_profile(situations=_empty_situations(10))
+def test_profile_category_weights_wrong_length_raises() -> None:
+    with pytest.raises(ValueError, match="category_weights must have exactly"):
+        _make_profile(category_weights=_empty_weights(10))
 
 
-def test_profile_pat_situations_wrong_length_raises() -> None:
-    with pytest.raises(ValueError, match="pat_situations must have exactly"):
-        _make_profile(pat_situations=_empty_situations(5))
+def test_profile_pat_category_weights_wrong_length_raises() -> None:
+    with pytest.raises(ValueError, match="pat_category_weights must have exactly"):
+        _make_profile(pat_category_weights=_empty_weights(5))
 
 
 @pytest.mark.parametrize("value", [0, 4, 51, 100])
@@ -191,20 +191,20 @@ def test_stop_clock_situations_empty_when_no_flags_set() -> None:
 
 
 def test_stop_clock_situations_returns_only_flagged_entries() -> None:
-    base = list(_empty_situations(Profile.NUMBER_SITUATIONS))
-    base[5] = _default_situation(stop_clock=True, weight1=3)
-    base[100] = _default_situation(stop_clock=True, weight1=7)
-    base[2519] = _default_situation(stop_clock=True, weight1=10)
+    base = list(_empty_weights(Profile.NUMBER_SITUATIONS))
+    base[5] = _default_weights(stop_clock=True, weight1=3)
+    base[100] = _default_weights(stop_clock=True, weight1=7)
+    base[2519] = _default_weights(stop_clock=True, weight1=10)
 
-    profile = _make_profile(situations=tuple(base))
+    profile = _make_profile(category_weights=tuple(base))
     indices = [index for index, _ in profile.stop_clock_situations]
     assert indices == [5, 100, 2519]
 
 
 def test_stop_clock_situations_yields_index_situation_pairs() -> None:
-    base = list(_empty_situations(Profile.NUMBER_SITUATIONS))
-    base[42] = _default_situation(stop_clock=True, weight1=4)
-    profile = _make_profile(situations=tuple(base))
+    base = list(_empty_weights(Profile.NUMBER_SITUATIONS))
+    base[42] = _default_weights(stop_clock=True, weight1=4)
+    profile = _make_profile(category_weights=tuple(base))
     pairs = profile.stop_clock_situations
     assert len(pairs) == 1
     index, situation = pairs[0]
@@ -214,8 +214,8 @@ def test_stop_clock_situations_yields_index_situation_pairs() -> None:
 
 
 def test_stop_clock_situations_excludes_pat_situations() -> None:
-    """The property only inspects `situations`, not `pat_situations`."""
-    pats = list(_empty_situations(Profile.NUMBER_PAT_SITUATIONS))
-    pats[0] = _default_situation(stop_clock=True, weight1=4)
-    profile = _make_profile(pat_situations=tuple(pats))
+    """The property only inspects `category_weights`, not `pat_category_weights`."""
+    pats = list(_empty_weights(Profile.NUMBER_PAT_SITUATIONS))
+    pats[0] = _default_weights(stop_clock=True, weight1=4)
+    profile = _make_profile(pat_category_weights=tuple(pats))
     assert profile.stop_clock_situations == ()

@@ -1,8 +1,8 @@
 # fbpro98-profile
 
-Library for reading Front Page Sports Football Pro '98 coaching profile (`.prf`) files.
+Library for reading and writing Front Page Sports Football Pro '98 coaching profile (`.prf`) files.
 
-Read-only at this stage. A write/update API is intentionally not yet exposed.
+Parsing is implemented; the write/update API is not yet exposed.
 
 ## Setup
 
@@ -23,9 +23,9 @@ profile.profile_type           # ProfileType.OFFENSE / DEFENSE
 profile.field_goal_range       # int, 5-50
 profile.use_audibles           # bool
 profile.substitutions          # SubstitutionSettings (8 position groups)
-profile.situations             # tuple of 2520 Situation
-profile.pat_situations         # tuple of 60 Situation
-profile.stop_clock_situations  # ((index, Situation), ...) — situations with Stop-Clock set
+profile.category_weights       # tuple of 2520 CategoryWeights — one per situation
+profile.pat_category_weights   # tuple of 60 CategoryWeights — one per PAT situation
+profile.stop_clock_situations  # ((index, CategoryWeights), ...) — situations with Stop-Clock set
 ```
 
 `parse_profile(buffer)` is the bytes-in entry point; `read_profile` wraps file I/O.

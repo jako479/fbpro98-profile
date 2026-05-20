@@ -6,17 +6,17 @@ from os import PathLike
 from pathlib import Path
 
 from fbpro98_profile.model import (
+    CategoryWeights,
     Profile,
     ProfileType,
-    Situation,
     SubstitutionPair,
     SubstitutionSettings,
 )
 from fbpro98_profile.schema import (
+    F95_CATEGORY_WEIGHTS,
     F95_DATA_SIZE,
     F95_FIELD_GOAL_RANGE,
     F95_HEADER,
-    F95_SITUATION,
     F95_STOCK_DATA_SIZES,
     F95_SUBSTITUTIONS,
     F95_USE_AUDIBLES,
@@ -96,7 +96,7 @@ def parse_profile(buffer: bytes, path: StrPath = "<buffer>") -> Profile:
     """
     file_path = Path(path)
 
-    f95_substitutions, f95_situations, f95_pat_situations, f95_fg_range, f95_use_audibles = _parse_f95(
+    f95_substitutions, f95_category_weights, f95_pat_category_weights, f95_fg_range, f95_use_audibles = _parse_f95(
         buffer, file_path
     )
     i95_start = F95_HEADER.size + F95_DATA_SIZE
@@ -118,8 +118,8 @@ def parse_profile(buffer: bytes, path: StrPath = "<buffer>") -> Profile:
     return Profile(
         profile_type=profile_type,
         substitutions=f95_substitutions,
-        situations=f95_situations,
-        pat_situations=f95_pat_situations,
+        category_weights=f95_category_weights,
+        pat_category_weights=f95_pat_category_weights,
         field_goal_range=f95_fg_range,
         use_audibles=bool(f95_use_audibles),
     )
@@ -127,7 +127,7 @@ def parse_profile(buffer: bytes, path: StrPath = "<buffer>") -> Profile:
 
 def _parse_f95(
     buffer: bytes, path: Path
-) -> tuple[SubstitutionSettings, tuple[Situation, ...], tuple[Situation, ...], int, int]:
+) -> tuple[SubstitutionSettings, tuple[CategoryWeights, ...], tuple[CategoryWeights, ...], int, int]:
     if len(buffer) < F95_HEADER.size + F95_DATA_SIZE:
         raise InvalidProfileError(f"File too small to contain F95 block in {path}")
 
@@ -144,9 +144,9 @@ def _parse_f95(
     substitutions = _parse_substitutions(buffer, offset, path)
 
     offset += F95_SUBSTITUTIONS.size
-    situations = _parse_situations(buffer, offset, Profile.NUMBER_SITUATIONS, "situation", path)
+    category_weights = _parse_category_weights(buffer, offset, Profile.NUMBER_SITUATIONS, "situation", path)
 
-    offset += F95_SITUATION.size * Profile.NUMBER_SITUATIONS
+    offset += F95_CATEGORY_WEIGHTS.size * Profile.NUMBER_SITUATIONS
     (fg_range,) = F95_FIELD_GOAL_RANGE.unpack_from(buffer, offset)
     if not Profile.FIELD_GOAL_RANGE_MIN <= fg_range <= Profile.FIELD_GOAL_RANGE_MAX:
         raise InvalidProfileError(
@@ -155,14 +155,14 @@ def _parse_f95(
         )
 
     offset += F95_FIELD_GOAL_RANGE.size
-    pat_situations = _parse_situations(buffer, offset, Profile.NUMBER_PAT_SITUATIONS, "PAT situation", path)
+    pat_category_weights = _parse_category_weights(buffer, offset, Profile.NUMBER_PAT_SITUATIONS, "PAT situation", path)
 
-    offset += F95_SITUATION.size * Profile.NUMBER_PAT_SITUATIONS
+    offset += F95_CATEGORY_WEIGHTS.size * Profile.NUMBER_PAT_SITUATIONS
     (use_audibles,) = F95_USE_AUDIBLES.unpack_from(buffer, offset)
     if use_audibles not in (0, 1):
         raise InvalidProfileError(f"F95 use_audibles {use_audibles} not in {{0, 1}} in {path}")
 
-    return substitutions, situations, pat_situations, fg_range, use_audibles
+    return substitutions, category_weights, pat_category_weights, fg_range, use_audibles
 
 
 def _parse_substitutions(buffer: bytes, offset: int, path: Path) -> SubstitutionSettings:
@@ -197,15 +197,17 @@ def _parse_substitutions(buffer: bytes, offset: int, path: Path) -> Substitution
     )
 
 
-def _parse_situations(buffer: bytes, offset: int, count: int, label: str, path: Path) -> tuple[Situation, ...]:
-    situations: list[Situation] = []
+def _parse_category_weights(
+    buffer: bytes, offset: int, count: int, label: str, path: Path
+) -> tuple[CategoryWeights, ...]:
+    records: list[CategoryWeights] = []
     for index in range(count):
-        record_offset = offset + index * F95_SITUATION.size
-        pc1, w1, pc2, w2, pc3, w3 = F95_SITUATION.unpack_from(buffer, record_offset)
+        record_offset = offset + index * F95_CATEGORY_WEIGHTS.size
+        pc1, w1, pc2, w2, pc3, w3 = F95_CATEGORY_WEIGHTS.unpack_from(buffer, record_offset)
         stop_clock = bool(w1 & STOP_CLOCK_BIT)
         weight1 = w1 & WEIGHT_MASK
         try:
-            situation = Situation(
+            record = CategoryWeights(
                 play_category1=pc1,
                 weight1=weight1,
                 stop_clock=stop_clock,
@@ -216,8 +218,8 @@ def _parse_situations(buffer: bytes, offset: int, count: int, label: str, path: 
             )
         except ValueError as exc:
             raise InvalidProfileError(f"Invalid {label} record at index {index}: {exc} in {path}") from exc
-        situations.append(situation)
-    return tuple(situations)
+        records.append(record)
+    return tuple(records)
 
 
 def _parse_i95(buffer: bytes, i95_start: int, path: Path) -> tuple[ProfileType, int, int, int]:

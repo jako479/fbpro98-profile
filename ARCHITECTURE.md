@@ -1,13 +1,13 @@
 # fbpro98-profile — Architecture
 
-Library that owns the FbPro '98 `.prf` coaching profile binary file format. Read-only at this stage.
+Library that owns the FbPro '98 `.prf` coaching profile binary file format — for reading and writing `.prf` files. The write API is not yet exposed.
 
 ## Module layout
 
 ```
 src/fbpro98_profile/
 ├── __init__.py    # public API re-exports
-├── model.py       # Profile, Situation, SubstitutionSettings, SubstitutionPair, ProfileType
+├── model.py       # Profile, CategoryWeights, SubstitutionSettings, SubstitutionPair, ProfileType
 ├── reader.py      # parse_profile, read_profile, InvalidProfileError, UnsupportedProfileError
 └── schema.py      # struct format strings for F95/I95 blocks
 ```
@@ -19,11 +19,11 @@ src/fbpro98_profile/
 - Parses `.prf` files into a typed in-memory model
 - Validates structural correctness (block magics, sizes, redundant F95/I95 fields agree, trailer length and bytes, file-size parity)
 - Exposes a frozen, type-safe model for downstream consumers
-- Exposes `Profile.stop_clock_situations` for retrieving situations with the Stop-Clock bit set
+- Exposes `Profile.stop_clock_situations` for retrieving situations whose category-weights record has the Stop-Clock bit set
 
 ## What this package does NOT do
 
-- Write profiles (write API deferred)
+- Write profiles (write API not yet implemented)
 - Handle the older "stock" on-disk layout — `F95.size` ∈ {`0x3F69`, `0x4509`} → `UnsupportedProfileError`
 - Handle profiles saved with embedded game plans — `I95.num_game_plan_blocks ≠ 0` or G95/J95/S98 magic after I95 → `UnsupportedProfileError`
 
@@ -34,8 +34,8 @@ src/fbpro98_profile/
 - F95/I95 disagree on `field_goal_range` or `use_audibles`
 - `field_goal_range` outside [5, 50]; `use_audibles` not in {0, 1}
 - Substitution pair violates `0 ≤ out ≤ in ≤ 100`
-- Situation `weight` outside [0, 10] (after masking off Stop-Clock bit on weight1)
-- Situation `play_category` outside [0x00, 0x1A]
+- Category-weights `weight` outside [0, 10] (after masking off Stop-Clock bit on weight1)
+- Category-weights `play_category` outside [0x00, 0x1A]
 - Trailer not exactly 1 byte (offense) / 2 bytes (defense), or any trailer byte not in {0x00, 0x69}
 - File-size parity wrong for profile type
 

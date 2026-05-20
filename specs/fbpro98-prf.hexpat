@@ -32,7 +32,7 @@ enum ProfileType : u8 {
     OFFENSE = 1
 };
 
-// ---- Play category (used in F95 situations); see prf.md §2.3.2 ----
+// ---- Play category (used in F95 category-weights records); see prf.md section 2.3.2 ----
 enum PlayCategoryOffense : u8 {
     GOAL_LINE_RUN        = 0x00,
     RAZZLE_DAZZLE_RUN    = 0x01,
@@ -108,8 +108,8 @@ struct SubstitutionData {
                                             // 0x20
 };
 
-// ---- One situation entry: 3 weighted play category picks ----
-struct Situation {
+// ---- One category-weights entry: 3 weighted play category picks for a situation ----
+struct CategoryWeights {
     PlayCategory playCategory1; // 0x00
     u8           weight1;       // 0x01; 0x00-0x0A; bit 7 (0x80) = Stop Clock setting
     PlayCategory playCategory2; // 0x02
@@ -119,17 +119,17 @@ struct Situation {
                                 // 0x06
 };
 
-// ---- F95: substitutions, 2520 situations, FG range, 60 PAT situations, audibles ----
+// ---- F95: substitutions, 2520 category-weights records, FG range, 60 PAT records, audibles ----
 struct F95 {
     BlockType id;       // 0x00; "F95:"
     u32       len;      // 0x04; data length (excludes id+len) // 0x3C9D
 
-    SubstitutionData substitutions;        // 0x08
-    Situation        situations[2520];     // 0x28; situation number = index
-    u8               fieldGoalRange;       // 0x3B38; 5-50
-    Situation        patSituations[60];    // 0x3B39; PAT situation number = index
-    u32              useAudibles;          // 0x3CA1; 0 or 1
-                                           // 0x3CA5
+    SubstitutionData substitutions;             // 0x08
+    CategoryWeights  categoryWeights[2520];     // 0x28; situation number = index
+    u8               fieldGoalRange;            // 0x3B38; 5-50
+    CategoryWeights  patCategoryWeights[60];    // 0x3B39; PAT situation number = index
+    u32              useAudibles;               // 0x3CA1; 0 or 1
+                                                // 0x3CA5
 
     std::assert(id == BlockType::F95, "Invalid block ID");
     std::assert(len == 0x3C9D, "Invalid data length");

@@ -8,7 +8,7 @@ from struct import Struct
 
 F95_HEADER = Struct("<4sI")
 F95_SUBSTITUTIONS = Struct("<16H")  # 8 (out, in) pairs = 32 bytes
-F95_SITUATION = Struct("<6B")  # play_category1, weight1, play_category2, weight2, play_category3, weight3
+F95_CATEGORY_WEIGHTS = Struct("<6B")  # play_category1, weight1, play_category2, weight2, play_category3, weight3
 F95_FIELD_GOAL_RANGE = Struct("<B")
 F95_USE_AUDIBLES = Struct("<I")
 I95_HEADER = Struct("<4sI")

@@ -1,7 +1,7 @@
 """In-memory data model for FbPro98 .prf coaching profile files.
 
 Defines the immutable types that the reader produces and the writer consumes:
-ProfileType, SubstitutionPair, SubstitutionSettings, Situation, and the
+ProfileType, SubstitutionPair, SubstitutionSettings, CategoryWeights, and the
 top-level Profile dataclass.
 """
 
@@ -107,14 +107,16 @@ DEFENSE_DISPLAY_CATEGORIES: frozenset[int] = frozenset(range(0x00, 0x16))
 
 
 @dataclass(frozen=True, slots=True)
-class Situation:
-    """One situation: three weighted play-category picks plus the Stop-Clock flag.
+class CategoryWeights:
+    """Play-calling rule for one situation: three weighted play-category picks plus the Stop-Clock flag.
 
-    `weightN` values are in [0, 10]. Only `weight1` carries the Stop-Clock bit
-    (bit 7) at the byte level; in this model it is broken out into the separate
-    `stop_clock` field. `play_categoryN` values are in [0x00, 0x1A] regardless
-    of the parent Profile's side; see `OFFENSE_DISPLAY_CATEGORIES` /
-    `DEFENSE_DISPLAY_CATEGORIES` for which codes the game UI labels per side.
+    Each Profile holds one CategoryWeights record per game situation (indexed by
+    the game's internal situation number). `weightN` values are in [0, 10]. Only
+    `weight1` carries the Stop-Clock bit (bit 7) at the byte level; in this
+    model it is broken out into the separate `stop_clock` field. `play_categoryN`
+    values are in [0x00, 0x1A] regardless of the parent Profile's side; see
+    `OFFENSE_DISPLAY_CATEGORIES` / `DEFENSE_DISPLAY_CATEGORIES` for which codes
+    the game UI labels per side.
     """
 
     play_category1: int
@@ -162,7 +164,7 @@ class Profile:
     """Full in-memory representation of a `.prf` coaching profile file.
 
     See specs/prf.md for the on-disk binary format. Construction validates
-    structural invariants (situation counts and field-goal range) via
+    structural invariants (record counts and field-goal range) via
     __post_init__; ValueError is raised for any violation.
     """
 
@@ -185,11 +187,13 @@ class Profile:
     substitutions: SubstitutionSettings
     """The eight position groups' substitution thresholds."""
 
-    situations: tuple[Situation, ...]
-    """The 2520 regular game-state situations, in on-disk order."""
+    category_weights: tuple[CategoryWeights, ...]
+    """Play-calling rules indexed by the game's situation number; 2520 entries,
+    one per regular game-state situation."""
 
-    pat_situations: tuple[Situation, ...]
-    """The 60 point-after-touchdown situations, in on-disk order."""
+    pat_category_weights: tuple[CategoryWeights, ...]
+    """Play-calling rules indexed by the game's PAT situation number; 60 entries,
+    one per point-after-touchdown situation."""
 
     field_goal_range: int
     """Field-goal attempt range in yards. Bounded by FIELD_GOAL_RANGE_MIN and
@@ -199,13 +203,14 @@ class Profile:
     """Whether the audibles feature is enabled."""
 
     def __post_init__(self) -> None:
-        if len(self.situations) != self.NUMBER_SITUATIONS:
+        if len(self.category_weights) != self.NUMBER_SITUATIONS:
             raise ValueError(
-                f"situations must have exactly {self.NUMBER_SITUATIONS} entries, got {len(self.situations)}"
+                f"category_weights must have exactly {self.NUMBER_SITUATIONS} entries, got {len(self.category_weights)}"
             )
-        if len(self.pat_situations) != self.NUMBER_PAT_SITUATIONS:
+        if len(self.pat_category_weights) != self.NUMBER_PAT_SITUATIONS:
             raise ValueError(
-                f"pat_situations must have exactly {self.NUMBER_PAT_SITUATIONS} entries, got {len(self.pat_situations)}"
+                f"pat_category_weights must have exactly {self.NUMBER_PAT_SITUATIONS} entries, "
+                f"got {len(self.pat_category_weights)}"
             )
         if not self.FIELD_GOAL_RANGE_MIN <= self.field_goal_range <= self.FIELD_GOAL_RANGE_MAX:
             raise ValueError(
@@ -224,14 +229,14 @@ class Profile:
         return self.profile_type == ProfileType.DEFENSE
 
     @property
-    def stop_clock_situations(self) -> tuple[tuple[int, Situation], ...]:
-        """Return `(index, Situation)` pairs for every situation with the Stop-Clock bit set.
+    def stop_clock_situations(self) -> tuple[tuple[int, CategoryWeights], ...]:
+        """Return `(situation_index, CategoryWeights)` pairs for every situation whose record has Stop-Clock set.
 
-        Indexes refer to positions within `self.situations` (the 2520 game-state
-        situations). PAT situations are not included.
+        Indexes refer to positions within `self.category_weights` (the 2520
+        regular game-state situations). PAT situations are not included.
 
         Returns:
-            Tuple of `(index, Situation)` pairs for situations where
-            `stop_clock` is True, in ascending index order.
+            Tuple of `(situation_index, CategoryWeights)` pairs for situations
+            where `stop_clock` is True, in ascending index order.
         """
-        return tuple((index, situation) for index, situation in enumerate(self.situations) if situation.stop_clock)
+        return tuple((index, weights) for index, weights in enumerate(self.category_weights) if weights.stop_clock)

@@ -75,7 +75,7 @@ typedef enum PLAY_TYPE
 
 } PLAY_TYPE;
 
-struct SITUATION
+struct CATEGORY_WEIGHTS
 {
     PLAY_TYPE   playType1;
     BYTE        weight1;        // Bit 7 (0x80): Stop Clock setting
@@ -83,15 +83,15 @@ struct SITUATION
     BYTE        weight2;
     PLAY_TYPE   playType3;
     BYTE        weight3;
-    
-    __verify(playType1 >= PLAY_TYPE.GOAL_LINE_RUN && 
+
+    __verify(playType1 >= PLAY_TYPE.GOAL_LINE_RUN &&
              playType1 <= PLAY_TYPE.PASS_SHORT_RANDOM);
     __verify((weight1 >= 0x00 && weight1 <= 0x0A) ||
              (weight1 >= 0x80 && weight1 <= 0x8A));     // Handle Stop Clock enabled
-    __verify(playType2 >= PLAY_TYPE.GOAL_LINE_RUN && 
+    __verify(playType2 >= PLAY_TYPE.GOAL_LINE_RUN &&
              playType2 <= PLAY_TYPE.PASS_SHORT_RANDOM);
     __verify(weight2 >= 0x00 && weight2 <= 0x0A);
-    __verify(playType3 >= PLAY_TYPE.GOAL_LINE_RUN && 
+    __verify(playType3 >= PLAY_TYPE.GOAL_LINE_RUN &&
              playType3 <= PLAY_TYPE.PASS_SHORT_RANDOM);
     __verify(weight3 >= 0x00 && weight3 <= 0x0A);
 };
@@ -113,11 +113,11 @@ struct F95
 {
     BLOCK_TYPE id;                                      // 0x00
     DWORD size;                                         // 0x04 // size of data // 0x3C9D
-    struct SUBSTITUTION_DATA        substitutions;      // 0x08
-    struct SITUATION                situations[2520];   // 0x28
-    BYTE                            fieldGoalRange;     // 0x3B38
-    struct SITUATION                patSituations[60];  // 0x3B39
-    DWORD                           useAudibles;        // 0x3CA1
+    struct SUBSTITUTION_DATA        substitutions;            // 0x08
+    struct CATEGORY_WEIGHTS         categoryWeights[2520];    // 0x28
+    BYTE                            fieldGoalRange;           // 0x3B38
+    struct CATEGORY_WEIGHTS         patCategoryWeights[60];   // 0x3B39
+    DWORD                           useAudibles;              // 0x3CA1
 
     __verify(id == BLOCK_TYPE.F95);
     __verify(size == 0x3C9D);

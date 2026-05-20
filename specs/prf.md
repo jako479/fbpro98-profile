@@ -30,7 +30,7 @@ Profiles can also be saved with embedded game plans (G95/J95/S98 trios after I95
 | 0x0000 | char[4] | ID   | `"F95:"`                                          |
 | 0x0004 | u32     | size | Data size in bytes (always `0x3C9D` = 15517 dec.) |
 
-Data layout: substitutions → situations → FG range → PAT situations → `use_audibles`.
+Data layout: substitutions → category weights → FG range → PAT category weights → `use_audibles`.
 
 ### 2.2 Substitution Settings (32 bytes, data offset `0x00`)
 
@@ -57,11 +57,11 @@ Data layout: substitutions → situations → FG range → PAT situations → `u
 
 The UI exposes only the offense groups (OL, QB, RB, WR, K) when editing an offense profile and only the defense groups (DL, LB, DB) for defense. Non-editable groups hold the game's default `80/90` (`0x50 / 0x5A`). Readers expose all eight; writers preserve disk bytes for non-editable groups (initialize to `80/90` for new profiles).
 
-### 2.3 Situations (15120 bytes, data offset `0x20`)
+### 2.3 Category Weights (15120 bytes, data offset `0x20`)
 
-2520 records × 6 bytes. Indexed by the game's internal situation number.
+2520 records × 6 bytes. Indexed by the game's internal situation number; each record holds the play-calling rule for that situation.
 
-#### 2.3.1 Situation Record (6 bytes)
+#### 2.3.1 Category Weights Record (6 bytes)
 
 | Offset | Type | Name             | Description                                           |
 | -----: | :--- | :--------------- | :---------------------------------------------------- |
@@ -72,7 +72,7 @@ The UI exposes only the offense groups (OL, QB, RB, WR, K) when editing an offen
 |   0x04 | u8   | play_category3   | Third play category                                   |
 |   0x05 | u8   | weight3          | Weight `0–10`                                         |
 
-Three weighted play-category picks. The AI selects one category (weighted by `weightN`) then chooses a play whose `play_category` matches — same enum as `PlayInPlan.play_category` in [pln.md section 2.3](../../fbpro98-gameplan/specs/pln.md#23-play-record-variable-size).
+Three weighted play-category picks for the situation at this index. The AI selects one category (weighted by `weightN`) then chooses a play whose `play_category` matches — same enum as `PlayInPlan.play_category` in [pln.md section 2.3](../../fbpro98-gameplan/specs/pln.md#23-play-record-variable-size).
 
 #### 2.3.2 Play Category Codes
 
@@ -127,7 +127,7 @@ The reader does not enforce side-specific code restrictions — it accepts `0x00
 | -----: | :--- | :--------------- | :---------------------------------------- |
 | 0x3B30 | u8   | field_goal_range | Maximum FG attempt distance, yards `5–50` |
 
-### 2.5 PAT Situations (360 bytes, data offset `0x3B31`)
+### 2.5 PAT Category Weights (360 bytes, data offset `0x3B31`)
 
 60 records using the section 2.3.1 layout. Indexed by the game's internal PAT situation number.
 
@@ -207,8 +207,8 @@ Reader raises `InvalidProfileError` for:
 - F95/I95 mismatch on `field_goal_range` or `use_audibles`
 - `use_audibles ∉ {0, 1}` in either block
 - Substitution pair violating `0 ≤ out ≤ in ≤ 100`
-- Situation `play_category ∉ [0x00, 0x1A]` (no side-specific subset enforced)
-- Situation `weight ∉ [0, 10]` (after masking the Stop-Clock bit on `weight1`)
+- Category-weights `play_category ∉ [0x00, 0x1A]` (no side-specific subset enforced)
+- Category-weights `weight ∉ [0, 10]` (after masking the Stop-Clock bit on `weight1`)
 - Trailer length ≠ 1 (offense) or 2 (defense)
 - Trailer byte ∉ {`0x00`, `0x69`}
 - File-size parity wrong for profile type
