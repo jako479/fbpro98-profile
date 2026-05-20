@@ -21,10 +21,16 @@ class ProfileType(IntEnum):
 
 @dataclass(frozen=True, slots=True)
 class SubstitutionPair:
-    """One position group's `out` / `in` substitution thresholds (each 0-100, out <= in)."""
+    """One position group's `out` / `in` substitution thresholds (each 0-100, out <= in).
+
+    See specs/prf.md section 2.2 for the on-disk layout.
+    """
 
     out_percent: int
+    """Fatigue threshold (0-100) at which a starter is pulled for a backup."""
+
     in_percent: int
+    """Recovery threshold (0-100) at which the starter returns. Must be >= out_percent."""
 
     def __post_init__(self) -> None:
         if not 0 <= self.out_percent <= 100:
@@ -46,17 +52,36 @@ class SubstitutionSettings:
     """
 
     offensive_linemen: SubstitutionPair
+    """OL substitution thresholds. Editable in the offense profile UI."""
+
     quarterbacks: SubstitutionPair
+    """QB substitution thresholds. Editable in the offense profile UI."""
+
     running_backs: SubstitutionPair
+    """RB substitution thresholds. Editable in the offense profile UI."""
+
     receivers: SubstitutionPair
+    """WR substitution thresholds. Editable in the offense profile UI."""
+
     defensive_linemen: SubstitutionPair
+    """DL substitution thresholds. Editable in the defense profile UI."""
+
     linebackers: SubstitutionPair
+    """LB substitution thresholds. Editable in the defense profile UI."""
+
     defensive_backs: SubstitutionPair
+    """DB substitution thresholds. Editable in the defense profile UI."""
+
     kickers: SubstitutionPair
+    """K substitution thresholds. Editable in the offense profile UI."""
 
     @classmethod
     def default(cls) -> SubstitutionSettings:
-        """Return a SubstitutionSettings with every pair at the game's default 80/90."""
+        """Return a SubstitutionSettings with every pair at the game's default 80/90.
+
+        Returns:
+            A SubstitutionSettings whose every pair is `SubstitutionPair(80, 90)`.
+        """
         default = SubstitutionPair(out_percent=80, in_percent=90)
         return cls(
             offensive_linemen=default,
@@ -93,12 +118,27 @@ class Situation:
     """
 
     play_category1: int
+    """Primary play category code (0x00-0x1A)."""
+
     weight1: int
+    """Weight of the primary pick (0-10). The Stop-Clock bit (bit 7) that
+    coexists in this byte on disk is broken out into `stop_clock`."""
+
     stop_clock: bool
+    """Whether the Stop-Clock flag is set for this situation (bit 7 of the
+    first weight byte on disk)."""
+
     play_category2: int
+    """Secondary play category code (0x00-0x1A)."""
+
     weight2: int
+    """Weight of the secondary pick (0-10)."""
+
     play_category3: int
+    """Tertiary play category code (0x00-0x1A)."""
+
     weight3: int
+    """Weight of the tertiary pick (0-10)."""
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -119,19 +159,44 @@ class Situation:
 
 @dataclass(frozen=True, slots=True)
 class Profile:
-    """Full in-memory representation of a `.prf` coaching profile file."""
+    """Full in-memory representation of a `.prf` coaching profile file.
+
+    See specs/prf.md for the on-disk binary format. Construction validates
+    structural invariants (situation counts and field-goal range) via
+    __post_init__; ValueError is raised for any violation.
+    """
 
     NUMBER_SITUATIONS: ClassVar[int] = 2520
+    """Number of regular game-state situations."""
+
     NUMBER_PAT_SITUATIONS: ClassVar[int] = 60
+    """Number of point-after-touchdown situations."""
+
     FIELD_GOAL_RANGE_MIN: ClassVar[int] = 5
+    """Minimum allowed field-goal range (yards)."""
+
     FIELD_GOAL_RANGE_MAX: ClassVar[int] = 50
+    """Maximum allowed field-goal range (yards)."""
 
     profile_type: ProfileType
+    """Whether this profile is for offense or defense. Determines trailer length
+    and file-size parity."""
+
     substitutions: SubstitutionSettings
+    """The eight position groups' substitution thresholds."""
+
     situations: tuple[Situation, ...]
+    """The 2520 regular game-state situations, in on-disk order."""
+
     pat_situations: tuple[Situation, ...]
+    """The 60 point-after-touchdown situations, in on-disk order."""
+
     field_goal_range: int
+    """Field-goal attempt range in yards. Bounded by FIELD_GOAL_RANGE_MIN and
+    FIELD_GOAL_RANGE_MAX."""
+
     use_audibles: bool
+    """Whether the audibles feature is enabled."""
 
     def __post_init__(self) -> None:
         if len(self.situations) != self.NUMBER_SITUATIONS:
@@ -150,10 +215,12 @@ class Profile:
 
     @property
     def is_offense(self) -> bool:
+        """True if this profile is for offense."""
         return self.profile_type == ProfileType.OFFENSE
 
     @property
     def is_defense(self) -> bool:
+        """True if this profile is for defense."""
         return self.profile_type == ProfileType.DEFENSE
 
     @property
@@ -162,5 +229,9 @@ class Profile:
 
         Indexes refer to positions within `self.situations` (the 2520 game-state
         situations). PAT situations are not included.
+
+        Returns:
+            Tuple of `(index, Situation)` pairs for situations where
+            `stop_clock` is True, in ascending index order.
         """
         return tuple((index, situation) for index, situation in enumerate(self.situations) if situation.stop_clock)

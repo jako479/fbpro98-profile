@@ -49,13 +49,51 @@ class UnsupportedProfileError(ValueError):
 
 
 def read_profile(path: StrPath) -> Profile:
-    """Read and parse a `.prf` coaching profile file."""
+    """Read and parse a .prf coaching profile file from disk.
+
+    Args:
+        path: Filesystem path to the .prf file.
+
+    Returns:
+        Parsed Profile.
+
+    Raises:
+        InvalidProfileError: If the file is not a structurally valid .prf (bad
+            block IDs, mismatched sizes, F95/I95 field disagreement, invalid
+            substitution / situation / field-goal-range / use-audibles values,
+            invalid trailer, or wrong file-size parity for the profile type).
+        UnsupportedProfileError: If the file is structurally valid but uses an
+            unsupported variant (stock layout, or has embedded game-plan
+            blocks). See specs/prf.md section 4.
+        OSError: If the file cannot be opened or read (subclasses include
+            FileNotFoundError, PermissionError, IsADirectoryError).
+    """
     file_path = Path(path)
     return parse_profile(file_path.read_bytes(), file_path)
 
 
 def parse_profile(buffer: bytes, path: StrPath = "<buffer>") -> Profile:
-    """Parse a `.prf` coaching profile from raw bytes."""
+    """Parse a .prf coaching profile from raw bytes.
+
+    Args:
+        buffer: Full contents of a .prf file.
+        path: Path used only in error messages. Defaults to "<buffer>" when
+            parsing data that did not come from disk.
+
+    Returns:
+        Parsed Profile.
+
+    Raises:
+        InvalidProfileError: If the buffer does not contain a valid F95+I95
+            block sequence with a correct trailer. Triggered by wrong block
+            IDs, mismatched sizes, F95/I95 field disagreement, invalid
+            substitution / situation / field-goal-range / use-audibles values,
+            invalid trailer bytes, or wrong file-size parity for the profile
+            type.
+        UnsupportedProfileError: If the buffer is structurally valid but uses
+            an unsupported variant (stock layout, or has embedded game-plan
+            blocks).
+    """
     file_path = Path(path)
 
     f95_substitutions, f95_situations, f95_pat_situations, f95_fg_range, f95_use_audibles = _parse_f95(
