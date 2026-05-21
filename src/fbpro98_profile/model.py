@@ -8,7 +8,7 @@ top-level Profile dataclass.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import Enum, IntEnum
 from typing import ClassVar
 
 
@@ -26,11 +26,8 @@ class SubstitutionPair:
     See specs/prf.md section 2.2 for the on-disk layout.
     """
 
-    out_percent: int
-    """Fatigue threshold (0-100) at which a starter is pulled for a backup."""
-
-    in_percent: int
-    """Recovery threshold (0-100) at which the starter returns. Must be >= out_percent."""
+    out_percent: int  # Fatigue threshold (0-100)
+    in_percent: int  # Recovery threshold (0-100). Must be >= out_percent.
 
     def __post_init__(self) -> None:
         if not 0 <= self.out_percent <= 100:
@@ -52,28 +49,13 @@ class SubstitutionSettings:
     """
 
     offensive_linemen: SubstitutionPair
-    """OL substitution thresholds. Editable in the offense profile UI."""
-
     quarterbacks: SubstitutionPair
-    """QB substitution thresholds. Editable in the offense profile UI."""
-
     running_backs: SubstitutionPair
-    """RB substitution thresholds. Editable in the offense profile UI."""
-
     receivers: SubstitutionPair
-    """WR substitution thresholds. Editable in the offense profile UI."""
-
     defensive_linemen: SubstitutionPair
-    """DL substitution thresholds. Editable in the defense profile UI."""
-
     linebackers: SubstitutionPair
-    """LB substitution thresholds. Editable in the defense profile UI."""
-
     defensive_backs: SubstitutionPair
-    """DB substitution thresholds. Editable in the defense profile UI."""
-
     kickers: SubstitutionPair
-    """K substitution thresholds. Editable in the offense profile UI."""
 
     @classmethod
     def default(cls) -> SubstitutionSettings:
@@ -95,6 +77,286 @@ class SubstitutionSettings:
         )
 
 
+class Down(IntEnum):
+    """Down number"""
+
+    FIRST = 1
+    SECOND = 2
+    THIRD = 3
+    Fourth = 4
+
+
+class MinutesRemaining(IntEnum):
+    """Bucket for time remaining in the current half, ordered most to least"""
+
+    OVER_FIVE = 0  # >5
+    TWO_TO_FIVE = 1  # >2-5
+    ONE_TO_TWO = 2  # >1-2
+    FIFTEEN_SEC_TO_ONE = 3  # >:15-1
+    ZERO_TO_FIFTEEN_SEC = 4  # 0-:15
+
+
+class YardsToGo(Enum):
+    """Bucket for yards needed for a first down"""
+
+    ZERO_TO_ONE = 0  # 0-1
+    TWO_TO_FIVE = 1  # 2-5
+    SIX_TO_TEN = 2  # 6-10
+    OVER_TEN = 3  # >10
+
+
+class FieldPosition(Enum):
+    """Bucket for current field position"""
+
+    INSIDE_DEF_5 = 0  # <DEF 5
+    DEF_5_TO_DEF_35 = 1  # DEF 5 - DEF 35
+    DEF_35_TO_OFF_35 = 2  # DEF 35 - OFF 35
+    OFF_35_TO_OFF_5 = 3  # OFF 35 - OFF 5
+    INSIDE_OFF_5 = 4  # <OFF 5
+
+
+class PointSpread(Enum):
+    """Bucket for current point spread"""
+
+    AHEAD_8_OR_MORE = 0  # Ahead by 8+
+    AHEAD_4_TO_7 = 1  # Ahead by 4-7
+    AHEAD_1_TO_3 = 2  # Ahead by 1-3
+    TIED = 3  # Tied
+    BEHIND_1_TO_3 = 4  # Behind by 1-3
+    BEHIND_4_TO_7 = 5  # Behind by 4-7
+    BEHIND_8_OR_MORE = 6  # Behind by 8+
+
+
+class PatMinutesRemaining(IntEnum):
+    """Bucket for time remaining in the current half (PAT-specific), ordered most to least.
+
+    Differs from MinutesRemaining: PAT collapses the >:15-1 and 0-:15 buckets
+    into a single 0-1 bucket. 4 buckets total instead of 5.
+    """
+
+    OVER_FIVE = 0  # >5
+    TWO_TO_FIVE = 1  # >2-5
+    ONE_TO_TWO = 2  # >1-2
+    ZERO_TO_ONE = 3  # 0-1
+
+
+class PatPointSpread(Enum):
+    """Bucket for current point spread (PAT-specific granularity, 15 buckets)."""
+
+    AHEAD_12_OR_MORE = 0  # Ahead by 12+
+    AHEAD_9_TO_11 = 1  # Ahead by 9-11
+    AHEAD_8 = 2  # Ahead by 8
+    AHEAD_6_TO_7 = 3  # Ahead by 6-7
+    AHEAD_5 = 4  # Ahead by 5
+    AHEAD_2_TO_4 = 5  # Ahead by 2-4
+    AHEAD_1 = 6  # Ahead by 1
+    TIED = 7  # Tied
+    BEHIND_1 = 8  # Behind by 1
+    BEHIND_2 = 9  # Behind by 2
+    BEHIND_3_TO_4 = 10  # Behind by 3-4
+    BEHIND_5 = 11  # Behind by 5
+    BEHIND_6_TO_8 = 12  # Behind by 6-8
+    BEHIND_9_TO_12 = 13  # Behind by 9-12
+    BEHIND_13_OR_MORE = 14  # Behind by 13+
+
+
+@dataclass(frozen=True, slots=True)
+class Situation:
+    """Game situation details and corresponding play-calling rules.
+
+    Each Situation holds the game situation details (minutes remaining bucket, down,
+    yard-to-go bucket, field position bucket, and point spread bucket) and the
+    corresponding play-calling rules: three weighted play categories and whether the
+    clock should be stopped such as by timeout or spiking the ball.
+
+    `situation_number` is the file's 0-based index into the situations array and is
+    structurally determined by the five bucket dimensions; construction validates
+    that all six are mutually consistent.
+    """
+
+    situation_number: int
+
+    # Game situation
+    minutes_remaining: MinutesRemaining  # Minutes remaining in the half bucket
+    down: Down
+    yards_to_go: YardsToGo  # Bucket
+    field_position: FieldPosition  # Bucket
+    point_spread: PointSpread  # Bucket
+
+    # Play-calling rules
+    stop_clock: bool
+    category_weights: CategoryWeights
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.situation_number < 2520:
+            raise ValueError(f"situation_number must be in [0, 2520), got {self.situation_number}")
+        expected = self.index_from_dimensions(
+            self.minutes_remaining,
+            self.down,
+            self.yards_to_go,
+            self.field_position,
+            self.point_spread,
+        )
+        if expected != self.situation_number:
+            raise ValueError(
+                f"situation_number {self.situation_number} does not match dimensions (expected {expected})"
+            )
+
+    @classmethod
+    def from_index(
+        cls,
+        situation_number: int,
+        stop_clock: bool,
+        category_weights: CategoryWeights,
+    ) -> Situation:
+        """Build a Situation by decoding situation_number into bucket dimensions."""
+        minutes, down, yards, field, spread = cls.dimensions_from_index(situation_number)
+        return cls(
+            situation_number=situation_number,
+            minutes_remaining=minutes,
+            down=down,
+            yards_to_go=yards,
+            field_position=field,
+            point_spread=spread,
+            stop_clock=stop_clock,
+            category_weights=category_weights,
+        )
+
+    @staticmethod
+    def dimensions_from_index(
+        situation_number: int,
+    ) -> tuple[MinutesRemaining, Down, YardsToGo, FieldPosition, PointSpread]:
+        """Decode situation_number into the five bucket dimensions.
+
+        Raises ValueError if situation_number is outside [0, 2520).
+        """
+        if not 0 <= situation_number < 2520:
+            raise ValueError(f"situation_number must be in [0, 2520), got {situation_number}")
+
+        minutes_idx = situation_number // 504
+        rem = situation_number % 504
+        down_idx = rem // 126  # 0-based
+        rem = rem % 126
+
+        if rem < 35:
+            yards_idx, field_idx, spread_idx = 0, rem // 7, rem % 7
+        elif rem < 70:
+            rem -= 35
+            yards_idx, field_idx, spread_idx = 1, rem // 7, rem % 7
+        elif rem < 98:
+            rem -= 70
+            yards_idx, field_idx, spread_idx = 2, (rem // 7) + 1, rem % 7
+        else:  # rem < 126
+            rem -= 98
+            yards_idx, field_idx, spread_idx = 3, (rem // 7) + 1, rem % 7
+
+        return (
+            MinutesRemaining(minutes_idx),
+            Down(down_idx + 1),
+            YardsToGo(yards_idx),
+            FieldPosition(field_idx),
+            PointSpread(spread_idx),
+        )
+
+    @staticmethod
+    def index_from_dimensions(
+        minutes_remaining: MinutesRemaining,
+        down: Down,
+        yards_to_go: YardsToGo,
+        field_position: FieldPosition,
+        point_spread: PointSpread,
+    ) -> int:
+        """Encode the five bucket dimensions into situation_number.
+
+        Raises ValueError on the structurally-invalid combo (6-10 or >10
+        yards-to-go from inside the DEF 5).
+        """
+        yards_idx = yards_to_go.value
+        field_idx = field_position.value
+
+        if yards_idx >= 2 and field_idx == 0:
+            raise ValueError(f"invalid combo: {yards_to_go.name} yards-to-go from {field_position.name}")
+
+        section_start = (minutes_remaining.value * 4 + (down.value - 1)) * 126
+
+        if yards_idx == 0:
+            within = field_idx * 7 + point_spread.value
+        elif yards_idx == 1:
+            within = 35 + field_idx * 7 + point_spread.value
+        elif yards_idx == 2:
+            within = 70 + (field_idx - 1) * 7 + point_spread.value
+        else:  # yards_idx == 3
+            within = 98 + (field_idx - 1) * 7 + point_spread.value
+
+        return section_start + within
+
+
+@dataclass(frozen=True, slots=True)
+class PatSituation:
+    """PAT (point-after-touchdown) game situation and its play-calling rule.
+
+    PAT situations vary only by minutes remaining and point spread — down,
+    yards-to-go, field position, and stop_clock don't apply.
+
+    `situation_number` is the file's 0-based index into the PAT situations array
+    and is structurally determined by the two bucket dimensions; construction
+    validates that the three values are mutually consistent.
+    """
+
+    situation_number: int
+
+    # Game situation
+    minutes_remaining: PatMinutesRemaining  # Minutes remaining in the half bucket
+    point_spread: PatPointSpread  # Bucket
+
+    # Play-calling rules
+    category_weights: CategoryWeights
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.situation_number < 60:
+            raise ValueError(f"situation_number must be in [0, 60), got {self.situation_number}")
+        expected = self.index_from_dimensions(self.minutes_remaining, self.point_spread)
+        if expected != self.situation_number:
+            raise ValueError(
+                f"situation_number {self.situation_number} does not match dimensions (expected {expected})"
+            )
+
+    @classmethod
+    def from_index(
+        cls,
+        situation_number: int,
+        category_weights: CategoryWeights,
+    ) -> PatSituation:
+        """Build a PatSituation by decoding situation_number into bucket dimensions."""
+        minutes, spread = cls.dimensions_from_index(situation_number)
+        return cls(
+            situation_number=situation_number,
+            minutes_remaining=minutes,
+            point_spread=spread,
+            category_weights=category_weights,
+        )
+
+    @staticmethod
+    def dimensions_from_index(situation_number: int) -> tuple[PatMinutesRemaining, PatPointSpread]:
+        """Decode situation_number into the two PAT bucket dimensions.
+
+        Raises ValueError if situation_number is outside [0, 60).
+        """
+        if not 0 <= situation_number < 60:
+            raise ValueError(f"situation_number must be in [0, 60), got {situation_number}")
+        minutes_idx = situation_number // 15
+        spread_idx = situation_number % 15
+        return PatMinutesRemaining(minutes_idx), PatPointSpread(spread_idx)
+
+    @staticmethod
+    def index_from_dimensions(
+        minutes_remaining: PatMinutesRemaining,
+        point_spread: PatPointSpread,
+    ) -> int:
+        """Encode the two PAT bucket dimensions into situation_number."""
+        return minutes_remaining.value * 15 + point_spread.value
+
+
 # Display-name lookup sets per specs/prf.md section 2.3.2. These describe which
 # play_category values the in-game UI labels under each side; they are NOT a
 # wire-format constraint, so neither the model nor the reader rejects bytes
@@ -108,39 +370,21 @@ DEFENSE_DISPLAY_CATEGORIES: frozenset[int] = frozenset(range(0x00, 0x16))
 
 @dataclass(frozen=True, slots=True)
 class CategoryWeights:
-    """Play-calling rule for one situation: three weighted play-category picks plus the Stop-Clock flag.
+    """Three weighted play-category picks used to drive AI play selection.
 
     Each Profile holds one CategoryWeights record per game situation (indexed by
-    the game's internal situation number). `weightN` values are in [0, 10]. Only
-    `weight1` carries the Stop-Clock bit (bit 7) at the byte level; in this
-    model it is broken out into the separate `stop_clock` field. `play_categoryN`
-    values are in [0x00, 0x1A] regardless of the parent Profile's side; see
-    `OFFENSE_DISPLAY_CATEGORIES` / `DEFENSE_DISPLAY_CATEGORIES` for which codes
-    the game UI labels per side.
+    the game's internal situation number). `weightN` values are in [0, 10].
+    `play_categoryN` values are in [0x00, 0x1A] regardless of the parent
+    Profile's side; see `OFFENSE_DISPLAY_CATEGORIES` /
+    `DEFENSE_DISPLAY_CATEGORIES` for which codes the game UI labels per side.
     """
 
-    play_category1: int
-    """Primary play category code (0x00-0x1A)."""
-
-    weight1: int
-    """Weight of the primary pick (0-10). The Stop-Clock bit (bit 7) that
-    coexists in this byte on disk is broken out into `stop_clock`."""
-
-    stop_clock: bool
-    """Whether the Stop-Clock flag is set for this situation (bit 7 of the
-    first weight byte on disk)."""
-
-    play_category2: int
-    """Secondary play category code (0x00-0x1A)."""
-
-    weight2: int
-    """Weight of the secondary pick (0-10)."""
-
-    play_category3: int
-    """Tertiary play category code (0x00-0x1A)."""
-
-    weight3: int
-    """Weight of the tertiary pick (0-10)."""
+    play_category1: int  # First play category code (0x00-0x1A)
+    weight1: int  # Weight of the first play category (0-10).
+    play_category2: int  # Second play category code (0x00-0x1A)
+    weight2: int  # Weight of the second play category (0-10).
+    play_category3: int  # Third play category code (0x00-0x1A)
+    weight3: int  # Weight of the third play category (0-10).
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -169,48 +413,24 @@ class Profile:
     """
 
     NUMBER_SITUATIONS: ClassVar[int] = 2520
-    """Number of regular game-state situations."""
-
     NUMBER_PAT_SITUATIONS: ClassVar[int] = 60
-    """Number of point-after-touchdown situations."""
-
     FIELD_GOAL_RANGE_MIN: ClassVar[int] = 5
-    """Minimum allowed field-goal range (yards)."""
-
     FIELD_GOAL_RANGE_MAX: ClassVar[int] = 50
-    """Maximum allowed field-goal range (yards)."""
-
     profile_type: ProfileType
-    """Whether this profile is for offense or defense. Determines trailer length
-    and file-size parity."""
-
     substitutions: SubstitutionSettings
-    """The eight position groups' substitution thresholds."""
-
-    category_weights: tuple[CategoryWeights, ...]
-    """Play-calling rules indexed by the game's situation number; 2520 entries,
-    one per regular game-state situation."""
-
-    pat_category_weights: tuple[CategoryWeights, ...]
-    """Play-calling rules indexed by the game's PAT situation number; 60 entries,
-    one per point-after-touchdown situation."""
-
-    field_goal_range: int
-    """Field-goal attempt range in yards. Bounded by FIELD_GOAL_RANGE_MIN and
-    FIELD_GOAL_RANGE_MAX."""
-
+    situations: tuple[Situation, ...]
+    pat_situations: tuple[PatSituation, ...]
+    field_goal_range: int  # Bounded by FIELD_GOAL_RANGE_MIN and FIELD_GOAL_RANGE_MAX
     use_audibles: bool
-    """Whether the audibles feature is enabled."""
 
     def __post_init__(self) -> None:
-        if len(self.category_weights) != self.NUMBER_SITUATIONS:
+        if len(self.situations) != self.NUMBER_SITUATIONS:
             raise ValueError(
-                f"category_weights must have exactly {self.NUMBER_SITUATIONS} entries, got {len(self.category_weights)}"
+                f"situations must have exactly {self.NUMBER_SITUATIONS} entries, got {len(self.situations)}"
             )
-        if len(self.pat_category_weights) != self.NUMBER_PAT_SITUATIONS:
+        if len(self.pat_situations) != self.NUMBER_PAT_SITUATIONS:
             raise ValueError(
-                f"pat_category_weights must have exactly {self.NUMBER_PAT_SITUATIONS} entries, "
-                f"got {len(self.pat_category_weights)}"
+                f"pat_situations must have exactly {self.NUMBER_PAT_SITUATIONS} entries, got {len(self.pat_situations)}"
             )
         if not self.FIELD_GOAL_RANGE_MIN <= self.field_goal_range <= self.FIELD_GOAL_RANGE_MAX:
             raise ValueError(
@@ -220,23 +440,22 @@ class Profile:
 
     @property
     def is_offense(self) -> bool:
-        """True if this profile is for offense."""
         return self.profile_type == ProfileType.OFFENSE
 
     @property
     def is_defense(self) -> bool:
-        """True if this profile is for defense."""
         return self.profile_type == ProfileType.DEFENSE
 
     @property
-    def stop_clock_situations(self) -> tuple[tuple[int, CategoryWeights], ...]:
-        """Return `(situation_index, CategoryWeights)` pairs for every situation whose record has Stop-Clock set.
+    def stop_clock_situations(self) -> tuple[tuple[int, Situation], ...]:
+        """Return `(situation_index, Situation)` pairs for every situation with stop_clock set.
 
-        Indexes refer to positions within `self.category_weights` (the 2520
-        regular game-state situations). PAT situations are not included.
+        Indexes refer to positions within `self.situations` (the 2520 regular
+        game-state situations). PAT situations are not included since they have
+        no stop_clock concept.
 
         Returns:
-            Tuple of `(situation_index, CategoryWeights)` pairs for situations
-            where `stop_clock` is True, in ascending index order.
+            Tuple of `(situation_index, Situation)` pairs for situations where
+            `stop_clock` is True, in ascending index order.
         """
-        return tuple((index, weights) for index, weights in enumerate(self.category_weights) if weights.stop_clock)
+        return tuple((index, situation) for index, situation in enumerate(self.situations) if situation.stop_clock)

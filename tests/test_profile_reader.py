@@ -16,8 +16,10 @@ import pytest
 from fbpro98_profile import (
     CategoryWeights,
     InvalidProfileError,
+    PatSituation,
     Profile,
     ProfileType,
+    Situation,
     UnsupportedProfileError,
     parse_profile,
     read_profile,
@@ -69,8 +71,8 @@ def test_off1_use_audibles() -> None:
 
 def test_off1_situation_counts() -> None:
     profile = read_profile(_require_fixture(OFF1_PATH))
-    assert len(profile.category_weights) == 2520
-    assert len(profile.pat_category_weights) == 60
+    assert len(profile.situations) == 2520
+    assert len(profile.pat_situations) == 60
 
 
 def test_off1_substitutions() -> None:
@@ -88,10 +90,12 @@ def test_off1_substitutions() -> None:
 
 def test_off1_first_situation() -> None:
     profile = read_profile(_require_fixture(OFF1_PATH))
-    assert profile.category_weights[0] == CategoryWeights(
+    situation = profile.situations[0]
+    assert situation.situation_number == 0
+    assert situation.stop_clock is False
+    assert situation.category_weights == CategoryWeights(
         play_category1=3,
         weight1=8,
-        stop_clock=False,
         play_category2=13,
         weight2=9,
         play_category3=10,
@@ -101,10 +105,12 @@ def test_off1_first_situation() -> None:
 
 def test_off1_last_situation() -> None:
     profile = read_profile(_require_fixture(OFF1_PATH))
-    assert profile.category_weights[-1] == CategoryWeights(
+    situation = profile.situations[-1]
+    assert situation.situation_number == 2519
+    assert situation.stop_clock is False
+    assert situation.category_weights == CategoryWeights(
         play_category1=5,
         weight1=2,
-        stop_clock=False,
         play_category2=16,
         weight2=10,
         play_category3=2,
@@ -114,10 +120,11 @@ def test_off1_last_situation() -> None:
 
 def test_off1_first_pat_situation() -> None:
     profile = read_profile(_require_fixture(OFF1_PATH))
-    assert profile.pat_category_weights[0] == CategoryWeights(
+    pat = profile.pat_situations[0]
+    assert pat.situation_number == 0
+    assert pat.category_weights == CategoryWeights(
         play_category1=5,
         weight1=2,
-        stop_clock=False,
         play_category2=16,
         weight2=10,
         play_category3=2,
@@ -135,8 +142,8 @@ def test_off1_first_stop_clock_situation_index() -> None:
     first_index, first_situation = profile.stop_clock_situations[0]
     assert first_index == 1015
     assert first_situation.stop_clock is True
-    assert first_situation.play_category1 == 3
-    assert first_situation.weight1 == 4
+    assert first_situation.category_weights.play_category1 == 3
+    assert first_situation.category_weights.weight1 == 4
 
 
 def test_off1_last_stop_clock_situation_index() -> None:
@@ -219,10 +226,12 @@ def test_def1_substitutions() -> None:
 
 def test_def1_first_situation() -> None:
     profile = read_profile(_require_fixture(DEF1_PATH))
-    assert profile.category_weights[0] == CategoryWeights(
+    situation = profile.situations[0]
+    assert situation.situation_number == 0
+    assert situation.stop_clock is False
+    assert situation.category_weights == CategoryWeights(
         play_category1=7,
         weight1=6,
-        stop_clock=False,
         play_category2=10,
         weight2=3,
         play_category3=6,
@@ -232,10 +241,11 @@ def test_def1_first_situation() -> None:
 
 def test_def1_first_pat_situation() -> None:
     profile = read_profile(_require_fixture(DEF1_PATH))
-    assert profile.pat_category_weights[0] == CategoryWeights(
+    pat = profile.pat_situations[0]
+    assert pat.situation_number == 0
+    assert pat.category_weights == CategoryWeights(
         play_category1=1,
         weight1=2,
-        stop_clock=False,
         play_category2=4,
         weight2=2,
         play_category3=2,
@@ -279,14 +289,14 @@ def test_def2_first_stop_clock_situation_index() -> None:
     first_index, first_situation = profile.stop_clock_situations[0]
     assert first_index == 0
     assert first_situation.stop_clock is True
-    assert first_situation.play_category1 == 19
-    assert first_situation.weight1 == 10
+    assert first_situation.category_weights.play_category1 == 19
+    assert first_situation.category_weights.weight1 == 10
 
 
 def test_def2_first_situation_has_stop_clock_set() -> None:
     """DEN-DEF2's situation 0 is the only fixture sample with stop_clock at index 0."""
     profile = read_profile(_require_fixture(DEF2_PATH))
-    assert profile.category_weights[0].stop_clock is True
+    assert profile.situations[0].stop_clock is True
 
 
 # ---------- public API surface ----------
@@ -297,6 +307,12 @@ def test_read_profile_returns_profile_instance() -> None:
     assert isinstance(profile, Profile)
 
 
+def test_situations_are_situation_instances() -> None:
+    profile = read_profile(_require_fixture(OFF1_PATH))
+    assert isinstance(profile.situations[0], Situation)
+    assert isinstance(profile.pat_situations[0], PatSituation)
+
+
 def test_parse_profile_from_buffer_matches_read_profile() -> None:
     buffer = _require_fixture(OFF1_PATH).read_bytes()
     from_buffer = parse_profile(buffer)
@@ -305,8 +321,8 @@ def test_parse_profile_from_buffer_matches_read_profile() -> None:
     assert from_buffer.field_goal_range == from_file.field_goal_range
     assert from_buffer.use_audibles == from_file.use_audibles
     assert from_buffer.substitutions == from_file.substitutions
-    assert from_buffer.category_weights == from_file.category_weights
-    assert from_buffer.pat_category_weights == from_file.pat_category_weights
+    assert from_buffer.situations == from_file.situations
+    assert from_buffer.pat_situations == from_file.pat_situations
 
 
 def test_invalid_profile_error_is_value_error_subclass() -> None:

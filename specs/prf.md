@@ -121,6 +121,31 @@ The reader does not enforce side-specific code restrictions — it accepts `0x00
 
 `weight2` and `weight3` are plain weights with no Stop-Clock bit; range `0–10`.
 
+#### 2.3.4 Situation Index Decomposition
+
+The 2520-entry array is ordered by the cross-product of five game-state dimensions, with one structural exclusion. Fastest-changing dimension is last:
+
+| Dimension          | Cardinality | Buckets (ordered)                                                       |
+| :----------------- | ----------: | :---------------------------------------------------------------------- |
+| minutes_remaining  |           5 | `>5`, `>2-5`, `>1-2`, `>:15-1`, `0-:15`                                 |
+| down               |           4 | 1, 2, 3, 4                                                              |
+| yards_to_go        |           4 | `0-1`, `2-5`, `6-10`, `>10`                                             |
+| field_position     |           5 | `<DEF 5`, `DEF 5 - DEF 35`, `DEF 35 - OFF 35`, `OFF 35 - OFF 5`, `<OFF 5` |
+| point_spread       |           7 | Ahead by 8+, 4-7, 1-3; Tied; Behind by 1-3, 4-7, 8+                     |
+
+Dense product is `5 × 4 × 4 × 5 × 7 = 2800`. The 280 missing entries are the structurally-invalid combinations where `field_position == INSIDE_DEF_5 ∧ yards_to_go ∈ {6-10, >10}` (you can't have 6+ yards to a first down when the goal line is within 5 yards). Per `(minutes, down)` block, the layout is:
+
+| Yards bucket | Cells per block | Field positions present                    |
+| :----------- | --------------: | :----------------------------------------- |
+| `0-1`        |              35 | all 5                                      |
+| `2-5`        |              35 | all 5                                      |
+| `6-10`       |              28 | 4 (excludes `INSIDE_DEF_5`)                |
+| `>10`        |              28 | 4 (excludes `INSIDE_DEF_5`)                |
+
+Per `(minutes, down)`: 35 + 35 + 28 + 28 = 126. Total: 5 × 4 × 126 = 2520.
+
+`stop_clock` is bit 7 of `weight1` on disk (see section 2.3.3), but in the parsed model it appears as a field on `Situation` rather than on `CategoryWeights` — it's a situation-level flag, not a play-category attribute.
+
 ### 2.4 Field Goal Range (1 byte, data offset `0x3B30`)
 
 | Offset | Type | Name             | Description                               |
@@ -130,6 +155,19 @@ The reader does not enforce side-specific code restrictions — it accepts `0x00
 ### 2.5 PAT Category Weights (360 bytes, data offset `0x3B31`)
 
 60 records using the section 2.3.1 layout. Indexed by the game's internal PAT situation number.
+
+PAT records do **not** carry a Stop-Clock bit — `weight1` is a plain weight in `[0, 10]`, identical in semantics to `weight2` and `weight3`. The reader rejects PAT records whose `weight1` falls outside `[0, 10]` (no bit-7 masking).
+
+#### 2.5.1 PAT Situation Index Decomposition
+
+PAT situations vary along only two dimensions (no down, yards-to-go, or field position):
+
+| Dimension          | Cardinality | Buckets (ordered)                                                                                              |
+| :----------------- | ----------: | :------------------------------------------------------------------------------------------------------------- |
+| minutes_remaining  |           4 | `>5`, `>2-5`, `>1-2`, `0-1`                                                                                    |
+| point_spread       |          15 | Ahead by 12+, 9-11, 8, 6-7, 5, 2-4, 1; Tied; Behind by 1, 2, 3-4, 5, 6-8, 9-12, 13+                            |
+
+Dense product: 4 × 15 = 60. No exclusions. PAT minutes collapses the regular-situation `>:15-1` and `0-:15` buckets into a single `0-1` bucket; PAT point-spread uses finer-grained buckets than regular situations (every 1-point difference up to ±8 is distinguished).
 
 ### 2.6 Use Audibles (4 bytes, data offset `0x3C99`)
 
