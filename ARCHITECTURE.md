@@ -7,19 +7,20 @@ Library that owns the FbPro '98 `.prf` coaching profile binary file format — f
 ```
 src/fbpro98_profile/
 ├── __init__.py    # public API re-exports
-├── model.py       # Profile, CategoryWeights, SubstitutionSettings, SubstitutionPair, ProfileType
+├── model.py       # Profile, Situation, PatSituation, CategoryWeights, bucket enums, SubstitutionSettings, SubstitutionPair, ProfileType
 ├── reader.py      # parse_profile, read_profile, InvalidProfileError, UnsupportedProfileError
 └── schema.py      # struct format strings for F95/I95 blocks
 ```
 
-`specs/fbpro98-prf.hexpat` and `specs/prf.md` document the on-disk byte layout.
+`specs/fbpro98-prf.hexpat` and `specs/prf.md` document the on-disk byte layout. The situation-index decomposition (formulas in [prf.md section 2.3.4](specs/prf.md#234-situation-index-decomposition) and [section 2.5.1](specs/prf.md#251-pat-situation-index-decomposition)) is implemented as `Situation.from_index` / `dimensions_from_index` / `index_from_dimensions` and the corresponding `PatSituation` methods in `model.py` — those are the canonical implementations; the reader simply delegates via `Situation.from_index(index, stop_clock, category_weights)`.
 
 ## What this package does
 
 - Parses `.prf` files into a typed in-memory model
 - Validates structural correctness (block magics, sizes, redundant F95/I95 fields agree, trailer length and bytes, file-size parity)
 - Exposes a frozen, type-safe model for downstream consumers
-- Exposes `Profile.stop_clock_situations` for retrieving situations whose category-weights record has the Stop-Clock bit set
+- Decodes the situation-number index into bucket dimensions (minutes remaining, down, yards-to-go, field position, point spread for regular situations; minutes remaining + point spread for PAT) and validates the structural gap (no `INSIDE_DEF_5` × `>=6` yards-to-go)
+- Exposes `Profile.stop_clock_situations` for retrieving situations with the Stop-Clock flag set
 
 ## What this package does NOT do
 
@@ -34,7 +35,8 @@ src/fbpro98_profile/
 - F95/I95 disagree on `field_goal_range` or `use_audibles`
 - `field_goal_range` outside [5, 50]; `use_audibles` not in {0, 1}
 - Substitution pair violates `0 ≤ out ≤ in ≤ 100`
-- Category-weights `weight` outside [0, 10] (after masking off Stop-Clock bit on weight1)
+- Regular-situation `weight` outside [0, 10] (after masking off Stop-Clock bit on weight1)
+- PAT-situation `weight1` outside [0, 10] (no Stop-Clock bit masking on PAT side)
 - Category-weights `play_category` outside [0x00, 0x1A]
 - Trailer not exactly 1 byte (offense) / 2 bytes (defense), or any trailer byte not in {0x00, 0x69}
 - File-size parity wrong for profile type

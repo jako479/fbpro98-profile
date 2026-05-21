@@ -144,6 +144,44 @@ Dense product is `5 × 4 × 4 × 5 × 7 = 2800`. The 280 missing entries are the
 
 Per `(minutes, down)`: 35 + 35 + 28 + 28 = 126. Total: 5 × 4 × 126 = 2520.
 
+**Decoding `situation_number` → dimensions** (all bucket indices 0-based; `down` is converted from 1-based on output):
+
+```
+minutes = situation_number // 504
+rem     = situation_number  % 504
+down    = rem // 126
+rem     = rem  % 126
+
+if rem < 35:
+    yards = 0;  field =  rem        // 7;  spread = rem % 7
+elif rem < 70:
+    rem -= 35
+    yards = 1;  field =  rem        // 7;  spread = rem % 7
+elif rem < 98:
+    rem -= 70
+    yards = 2;  field = (rem // 7) + 1;    spread = rem % 7       # +1 skips the missing INSIDE_DEF_5 row
+else:                                                              # rem < 126
+    rem -= 98
+    yards = 3;  field = (rem // 7) + 1;    spread = rem % 7
+```
+
+**Encoding dimensions → `situation_number`** (mirror image; raises on the invalid combo `yards ∈ {2, 3} ∧ field == 0`):
+
+```
+section_start = (minutes * 4 + down) * 126
+
+if yards == 0:
+    within =      field      * 7 + spread
+elif yards == 1:
+    within = 35 + field      * 7 + spread
+elif yards == 2:
+    within = 70 + (field - 1) * 7 + spread
+else:  # yards == 3
+    within = 98 + (field - 1) * 7 + spread
+
+situation_number = section_start + within
+```
+
 `stop_clock` is bit 7 of `weight1` on disk (see section 2.3.3), but in the parsed model it appears as a field on `Situation` rather than on `CategoryWeights` — it's a situation-level flag, not a play-category attribute.
 
 ### 2.4 Field Goal Range (1 byte, data offset `0x3B30`)
@@ -168,6 +206,15 @@ PAT situations vary along only two dimensions (no down, yards-to-go, or field po
 | point_spread       |          15 | Ahead by 12+, 9-11, 8, 6-7, 5, 2-4, 1; Tied; Behind by 1, 2, 3-4, 5, 6-8, 9-12, 13+                            |
 
 Dense product: 4 × 15 = 60. No exclusions. PAT minutes collapses the regular-situation `>:15-1` and `0-:15` buckets into a single `0-1` bucket; PAT point-spread uses finer-grained buckets than regular situations (every 1-point difference up to ±8 is distinguished).
+
+**Decoding / encoding** is a straight linear decomposition (no gaps):
+
+```
+minutes = situation_number // 15
+spread  = situation_number  % 15
+
+situation_number = minutes * 15 + spread
+```
 
 ### 2.6 Use Audibles (4 bytes, data offset `0x3C99`)
 

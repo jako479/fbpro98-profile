@@ -75,10 +75,15 @@ typedef enum PLAY_TYPE
 
 } PLAY_TYPE;
 
+// Used in both the 2520-entry regular situations array and the 60-entry PAT
+// array. For regular situations, bit 7 (0x80) of weight1 is the Stop-Clock
+// flag (so weight1 in [0x00,0x0A] | [0x80,0x8A]). For PAT situations, weight1
+// is a plain weight in [0x00,0x0A]; bit 7 is not used. The verify below
+// permits both forms.
 struct CATEGORY_WEIGHTS
 {
     PLAY_TYPE   playType1;
-    BYTE        weight1;        // Bit 7 (0x80): Stop Clock setting
+    BYTE        weight1;        // Regular: 0x00-0x0A | 0x80-0x8A (bit 7 = Stop Clock); PAT: 0x00-0x0A
     PLAY_TYPE   playType2;
     BYTE        weight2;
     PLAY_TYPE   playType3;
@@ -87,7 +92,7 @@ struct CATEGORY_WEIGHTS
     __verify(playType1 >= PLAY_TYPE.GOAL_LINE_RUN &&
              playType1 <= PLAY_TYPE.PASS_SHORT_RANDOM);
     __verify((weight1 >= 0x00 && weight1 <= 0x0A) ||
-             (weight1 >= 0x80 && weight1 <= 0x8A));     // Handle Stop Clock enabled
+             (weight1 >= 0x80 && weight1 <= 0x8A));     // Handle Stop Clock enabled (regular only)
     __verify(playType2 >= PLAY_TYPE.GOAL_LINE_RUN &&
              playType2 <= PLAY_TYPE.PASS_SHORT_RANDOM);
     __verify(weight2 >= 0x00 && weight2 <= 0x0A);
@@ -109,14 +114,22 @@ typedef enum BLOCK_TYPE
 
 #pragma show()
 
+// Regular situations array (2520 entries) is indexed by a 5-dimensional bucket
+// product with one structural gap. See prf.md section 2.3.4 for the formulas.
+//   minutes_remaining (5) x down (4) x yards_to_go (4) x field_position (5) x point_spread (7)
+//   = 5*4*4*5*7 = 2800 dense, minus 280 invalid combos (INSIDE_DEF_5 x yards >= 6) = 2520.
+//
+// PAT situations array (60 entries) varies only by minutes_remaining (4) and
+// point_spread (15). See prf.md section 2.5.1.
+//   minutes_remaining (4) x point_spread (15) = 60. No gaps.
 struct F95
 {
     BLOCK_TYPE id;                                      // 0x00
     DWORD size;                                         // 0x04 // size of data // 0x3C9D
     struct SUBSTITUTION_DATA        substitutions;            // 0x08
-    struct CATEGORY_WEIGHTS         categoryWeights[2520];    // 0x28
+    struct CATEGORY_WEIGHTS         categoryWeights[2520];    // 0x28; situation number = index
     BYTE                            fieldGoalRange;           // 0x3B38
-    struct CATEGORY_WEIGHTS         patCategoryWeights[60];   // 0x3B39
+    struct CATEGORY_WEIGHTS         patCategoryWeights[60];   // 0x3B39; PAT situation number = index
     DWORD                           useAudibles;              // 0x3CA1
 
     __verify(id == BLOCK_TYPE.F95);

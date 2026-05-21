@@ -109,9 +109,12 @@ struct SubstitutionData {
 };
 
 // ---- One category-weights entry: 3 weighted play category picks for a situation ----
+// Used in both the 2520-entry regular situations array and the 60-entry PAT array.
+// For regular situations, bit 7 (0x80) of weight1 is the Stop-Clock flag.
+// For PAT situations, weight1 is a plain weight in [0x00, 0x0A]; bit 7 is not used.
 struct CategoryWeights {
     PlayCategory playCategory1; // 0x00
-    u8           weight1;       // 0x01; 0x00-0x0A; bit 7 (0x80) = Stop Clock setting
+    u8           weight1;       // 0x01; regular: 0x00-0x0A | 0x80-0x8A; PAT: 0x00-0x0A
     PlayCategory playCategory2; // 0x02
     u8           weight2;       // 0x03; 0x00-0x0A
     PlayCategory playCategory3; // 0x04
@@ -120,6 +123,15 @@ struct CategoryWeights {
 };
 
 // ---- F95: substitutions, 2520 category-weights records, FG range, 60 PAT records, audibles ----
+//
+// Regular situations array (2520 entries) is indexed by a 5-dimensional bucket
+// product with one structural gap. See prf.md section 2.3.4 for the formulas.
+//   minutes_remaining (5) x down (4) x yards_to_go (4) x field_position (5) x point_spread (7)
+//   = 5*4*4*5*7 = 2800 dense, minus 280 invalid combos (INSIDE_DEF_5 x yards >= 6) = 2520.
+//
+// PAT situations array (60 entries) varies only by minutes_remaining (4) and point_spread (15).
+// See prf.md section 2.5.1.
+//   minutes_remaining (4) x point_spread (15) = 60. No gaps.
 struct F95 {
     BlockType id;       // 0x00; "F95:"
     u32       len;      // 0x04; data length (excludes id+len) // 0x3C9D
