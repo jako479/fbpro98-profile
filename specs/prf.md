@@ -36,24 +36,24 @@ Data layout: substitutions → category weights → FG range → PAT category we
 
 8 position groups × paired `out_percent` / `in_percent`. All 32 bytes physically present in both offense and defense profiles. Within a group: `0 ≤ out_percent ≤ in_percent ≤ 100`.
 
-| Offset | Type | Name              | Description                | Editable in |
-| -----: | :--- | :---------------- | :------------------------- | :---------- |
-|   0x00 | u16  | ol_out_percent    | Offensive linemen `out` %  | OFFENSE     |
-|   0x02 | u16  | ol_in_percent     | Offensive linemen `in` %   | OFFENSE     |
-|   0x04 | u16  | qb_out_percent    | Quarterbacks `out` %       | OFFENSE     |
-|   0x06 | u16  | qb_in_percent     | Quarterbacks `in` %        | OFFENSE     |
-|   0x08 | u16  | rb_out_percent    | Running backs `out` %      | OFFENSE     |
-|   0x0A | u16  | rb_in_percent     | Running backs `in` %       | OFFENSE     |
-|   0x0C | u16  | wr_out_percent    | Receivers `out` %          | OFFENSE     |
-|   0x0E | u16  | wr_in_percent     | Receivers `in` %           | OFFENSE     |
-|   0x10 | u16  | dl_out_percent    | Defensive linemen `out` %  | DEFENSE     |
-|   0x12 | u16  | dl_in_percent     | Defensive linemen `in` %   | DEFENSE     |
-|   0x14 | u16  | lb_out_percent    | Linebackers `out` %        | DEFENSE     |
-|   0x16 | u16  | lb_in_percent     | Linebackers `in` %         | DEFENSE     |
-|   0x18 | u16  | db_out_percent    | Defensive backs `out` %    | DEFENSE     |
-|   0x1A | u16  | db_in_percent     | Defensive backs `in` %     | DEFENSE     |
-|   0x1C | u16  | k_out_percent     | Kickers `out` %            | OFFENSE     |
-|   0x1E | u16  | k_in_percent      | Kickers `in` %             | OFFENSE     |
+| Offset | Type | Name           | Description               | Editable in |
+| -----: | :--- | :------------- | :------------------------ | :---------- |
+|   0x00 | u16  | ol_out_percent | Offensive linemen `out` % | OFFENSE     |
+|   0x02 | u16  | ol_in_percent  | Offensive linemen `in` %  | OFFENSE     |
+|   0x04 | u16  | qb_out_percent | Quarterbacks `out` %      | OFFENSE     |
+|   0x06 | u16  | qb_in_percent  | Quarterbacks `in` %       | OFFENSE     |
+|   0x08 | u16  | rb_out_percent | Running backs `out` %     | OFFENSE     |
+|   0x0A | u16  | rb_in_percent  | Running backs `in` %      | OFFENSE     |
+|   0x0C | u16  | wr_out_percent | Receivers `out` %         | OFFENSE     |
+|   0x0E | u16  | wr_in_percent  | Receivers `in` %          | OFFENSE     |
+|   0x10 | u16  | dl_out_percent | Defensive linemen `out` % | DEFENSE     |
+|   0x12 | u16  | dl_in_percent  | Defensive linemen `in` %  | DEFENSE     |
+|   0x14 | u16  | lb_out_percent | Linebackers `out` %       | DEFENSE     |
+|   0x16 | u16  | lb_in_percent  | Linebackers `in` %        | DEFENSE     |
+|   0x18 | u16  | db_out_percent | Defensive backs `out` %   | DEFENSE     |
+|   0x1A | u16  | db_in_percent  | Defensive backs `in` %    | DEFENSE     |
+|   0x1C | u16  | k_out_percent  | Kickers `out` %           | OFFENSE     |
+|   0x1E | u16  | k_in_percent   | Kickers `in` %            | OFFENSE     |
 
 The UI exposes only the offense groups (OL, QB, RB, WR, K) when editing an offense profile and only the defense groups (DL, LB, DB) for defense. Non-editable groups hold the game's default `80/90` (`0x50 / 0x5A`). Readers expose all eight; writers preserve disk bytes for non-editable groups (initialize to `80/90` for new profiles).
 
@@ -63,50 +63,50 @@ The UI exposes only the offense groups (OL, QB, RB, WR, K) when editing an offen
 
 #### 2.3.1 Category Weights Record (6 bytes)
 
-| Offset | Type | Name             | Description                                           |
-| -----: | :--- | :--------------- | :---------------------------------------------------- |
-|   0x00 | u8   | play_category1   | First play category — see section 2.3.2               |
-|   0x01 | u8   | weight1          | Weight `0–10` plus Stop-Clock bit — see section 2.3.3 |
-|   0x02 | u8   | play_category2   | Second play category                                  |
-|   0x03 | u8   | weight2          | Weight `0–10`                                         |
-|   0x04 | u8   | play_category3   | Third play category                                   |
-|   0x05 | u8   | weight3          | Weight `0–10`                                         |
+| Offset | Type | Name           | Description                                           |
+| -----: | :--- | :------------- | :---------------------------------------------------- |
+|   0x00 | u8   | play_category1 | First play category — see section 2.3.2               |
+|   0x01 | u8   | weight1        | Weight `0–10` plus Stop-Clock bit — see section 2.3.3 |
+|   0x02 | u8   | play_category2 | Second play category                                  |
+|   0x03 | u8   | weight2        | Weight `0–10`                                         |
+|   0x04 | u8   | play_category3 | Third play category                                   |
+|   0x05 | u8   | weight3        | Weight `0–10`                                         |
 
-Three weighted play-category picks for the situation at this index. The AI selects one category (weighted by `weightN`) then chooses a play whose `play_category` matches — same enum as `PlayInPlan.play_category` in [pln.md section 2.3](../../fbpro98-gameplan/specs/pln.md#23-play-record-variable-size).
+Three weighted play-category picks for the situation at this position. The AI selects one category (weighted by `weightN`) then chooses a play whose `play_category` matches — same enum as `PlayInPlan.play_category` in [pln.md section 2.3](../../fbpro98-gameplan/specs/pln.md#23-play-record-variable-size).
 
 #### 2.3.2 Play Category Codes
 
 Offense uses all 27 codes (`0x00`–`0x1A`). Defense uses 22 (`0x00`–`0x15`); `0x16`–`0x1A` are unused on defense. Defense doesn't distinguish pass direction, so `0x07`–`0x0F` collapse to three labels.
 
-| Value | Offense Name          | Defense Name          |
-| ----: | :-------------------- | :-------------------- |
-|  0x00 | GOAL_LINE_RUN         | GOAL_LINE_RUN         |
-|  0x01 | RAZZLE_DAZZLE_RUN     | RAZZLE_DAZZLE_RUN     |
-|  0x02 | RUN_LEFT              | RUN_LEFT              |
-|  0x03 | RUN_MIDDLE            | RUN_MIDDLE            |
-|  0x04 | RUN_RIGHT             | RUN_RIGHT             |
-|  0x05 | GOAL_LINE_PASS        | GOAL_LINE_PASS        |
-|  0x06 | RAZZLE_DAZZLE_PASS    | RAZZLE_DAZZLE_PASS    |
-|  0x07 | PASS_LONG_LEFT        | PASS_LONG             |
-|  0x08 | PASS_LONG_MIDDLE      | PASS_LONG             |
-|  0x09 | PASS_LONG_RIGHT       | PASS_LONG             |
-|  0x0A | PASS_MEDIUM_LEFT      | PASS_MEDIUM           |
-|  0x0B | PASS_MEDIUM_MIDDLE    | PASS_MEDIUM           |
-|  0x0C | PASS_MEDIUM_RIGHT     | PASS_MEDIUM           |
-|  0x0D | PASS_SHORT_LEFT       | PASS_SHORT            |
-|  0x0E | PASS_SHORT_MIDDLE     | PASS_SHORT            |
-|  0x0F | PASS_SHORT_RIGHT      | PASS_SHORT            |
-|  0x10 | FIELD_GOAL_PAT        | FIELD_GOAL_PAT        |
-|  0x11 | FAKE_FIELD_GOAL_RUN   | FAKE_FIELD_GOAL_RUN   |
-|  0x12 | FAKE_FIELD_GOAL_PASS  | FAKE_FIELD_GOAL_PASS  |
-|  0x13 | PUNT                  | PUNT                  |
-|  0x14 | FAKE_PUNT_RUN         | FAKE_PUNT_RUN         |
-|  0x15 | FAKE_PUNT_PASS        | FAKE_PUNT_PASS        |
-|  0x16 | RUN_CLOCK             | *(unused)*            |
-|  0x17 | RUN_RANDOM            | *(unused)*            |
-|  0x18 | PASS_LONG_RANDOM      | *(unused)*            |
-|  0x19 | PASS_MEDIUM_RANDOM    | *(unused)*            |
-|  0x1A | PASS_SHORT_RANDOM     | *(unused)*            |
+| Value | Offense Name         | Defense Name         |
+| ----: | :------------------- | :------------------- |
+|  0x00 | GOAL_LINE_RUN        | GOAL_LINE_RUN        |
+|  0x01 | RAZZLE_DAZZLE_RUN    | RAZZLE_DAZZLE_RUN    |
+|  0x02 | RUN_LEFT             | RUN_LEFT             |
+|  0x03 | RUN_MIDDLE           | RUN_MIDDLE           |
+|  0x04 | RUN_RIGHT            | RUN_RIGHT            |
+|  0x05 | GOAL_LINE_PASS       | GOAL_LINE_PASS       |
+|  0x06 | RAZZLE_DAZZLE_PASS   | RAZZLE_DAZZLE_PASS   |
+|  0x07 | PASS_LONG_LEFT       | PASS_LONG            |
+|  0x08 | PASS_LONG_MIDDLE     | PASS_LONG            |
+|  0x09 | PASS_LONG_RIGHT      | PASS_LONG            |
+|  0x0A | PASS_MEDIUM_LEFT     | PASS_MEDIUM          |
+|  0x0B | PASS_MEDIUM_MIDDLE   | PASS_MEDIUM          |
+|  0x0C | PASS_MEDIUM_RIGHT    | PASS_MEDIUM          |
+|  0x0D | PASS_SHORT_LEFT      | PASS_SHORT           |
+|  0x0E | PASS_SHORT_MIDDLE    | PASS_SHORT           |
+|  0x0F | PASS_SHORT_RIGHT     | PASS_SHORT           |
+|  0x10 | FIELD_GOAL_PAT       | FIELD_GOAL_PAT       |
+|  0x11 | FAKE_FIELD_GOAL_RUN  | FAKE_FIELD_GOAL_RUN  |
+|  0x12 | FAKE_FIELD_GOAL_PASS | FAKE_FIELD_GOAL_PASS |
+|  0x13 | PUNT                 | PUNT                 |
+|  0x14 | FAKE_PUNT_RUN        | FAKE_PUNT_RUN        |
+|  0x15 | FAKE_PUNT_PASS       | FAKE_PUNT_PASS       |
+|  0x16 | RUN_CLOCK            | _(unused)_           |
+|  0x17 | RUN_RANDOM           | _(unused)_           |
+|  0x18 | PASS_LONG_RANDOM     | _(unused)_           |
+|  0x19 | PASS_MEDIUM_RANDOM   | _(unused)_           |
+|  0x1A | PASS_SHORT_RANDOM    | _(unused)_           |
 
 The reader does not enforce side-specific code restrictions — it accepts `0x00`–`0x1A` on both sides for permissive inspection.
 
@@ -121,68 +121,32 @@ The reader does not enforce side-specific code restrictions — it accepts `0x00
 
 `weight2` and `weight3` are plain weights with no Stop-Clock bit; range `0–10`.
 
-#### 2.3.4 Situation Index Decomposition
+#### 2.3.4 Situation Number Layout
 
-The 2520-entry array is ordered by the cross-product of five game-state dimensions, with one structural exclusion. Fastest-changing dimension is last:
+The 2520-entry array is ordered by the cross-product of five game-state buckets, with one structural exclusion. Fastest-changing bucket is last:
 
-| Dimension          | Cardinality | Buckets (ordered)                                                       |
-| :----------------- | ----------: | :---------------------------------------------------------------------- |
-| minutes_remaining  |           5 | `>5`, `>2-5`, `>1-2`, `>:15-1`, `0-:15`                                 |
-| down               |           4 | 1, 2, 3, 4                                                              |
-| yards_to_go        |           4 | `0-1`, `2-5`, `6-10`, `>10`                                             |
-| field_position     |           5 | `<DEF 5`, `DEF 5 - DEF 35`, `DEF 35 - OFF 35`, `OFF 35 - OFF 5`, `<OFF 5` |
-| point_spread       |           7 | Ahead by 8+, 4-7, 1-3; Tied; Behind by 1-3, 4-7, 8+                     |
+| Bucket            | Cardinality | Values (ordered)                                                          |
+| :---------------- | ----------: | :------------------------------------------------------------------------ |
+| minutes_remaining |           5 | `>5`, `>2-5`, `>1-2`, `>:15-1`, `0-:15`                                   |
+| down              |           4 | 1, 2, 3, 4                                                                |
+| yards_to_go       |           4 | `0-1`, `2-5`, `6-10`, `>10`                                               |
+| field_position    |           5 | `<DEF 5`, `DEF 5 - DEF 35`, `DEF 35 - OFF 35`, `OFF 35 - OFF 5`, `<OFF 5` |
+| point_spread      |           7 | Ahead by 8+, 4-7, 1-3; Tied; Behind by 1-3, 4-7, 8+                       |
 
 Dense product is `5 × 4 × 4 × 5 × 7 = 2800`. The 280 missing entries are the structurally-invalid combinations where `field_position == INSIDE_DEF_5 ∧ yards_to_go ∈ {6-10, >10}` (you can't have 6+ yards to a first down when the goal line is within 5 yards). Per `(minutes, down)` block, the layout is:
 
-| Yards bucket | Cells per block | Field positions present                    |
-| :----------- | --------------: | :----------------------------------------- |
-| `0-1`        |              35 | all 5                                      |
-| `2-5`        |              35 | all 5                                      |
-| `6-10`       |              28 | 4 (excludes `INSIDE_DEF_5`)                |
-| `>10`        |              28 | 4 (excludes `INSIDE_DEF_5`)                |
+| Yards bucket | Cells per block | Field positions present     |
+| :----------- | --------------: | :-------------------------- |
+| `0-1`        |              35 | all 5                       |
+| `2-5`        |              35 | all 5                       |
+| `6-10`       |              28 | 4 (excludes `INSIDE_DEF_5`) |
+| `>10`        |              28 | 4 (excludes `INSIDE_DEF_5`) |
 
-Per `(minutes, down)`: 35 + 35 + 28 + 28 = 126. Total: 5 × 4 × 126 = 2520.
+Per `(minutes, down)` pair: 35 + 35 + 28 + 28 = 126 records. Total: 5 × 4 × 126 = 2520.
 
-**Decoding `situation_number` → dimensions** (all bucket indices 0-based; `down` is converted from 1-based on output):
+Records are laid out by minutes-remaining (slowest-changing), then down, then yards-to-go, then field-position, then point-spread (fastest-changing). Within each `(minutes, down)` pair the four yards-to-go groups appear in order; the two upper yards-to-go groups omit the `INSIDE_DEF_5` field-position row, which is what creates the 280-cell shortfall.
 
-```
-minutes = situation_number // 504
-rem     = situation_number  % 504
-down    = rem // 126
-rem     = rem  % 126
-
-if rem < 35:
-    yards = 0;  field =  rem        // 7;  spread = rem % 7
-elif rem < 70:
-    rem -= 35
-    yards = 1;  field =  rem        // 7;  spread = rem % 7
-elif rem < 98:
-    rem -= 70
-    yards = 2;  field = (rem // 7) + 1;    spread = rem % 7       # +1 skips the missing INSIDE_DEF_5 row
-else:                                                              # rem < 126
-    rem -= 98
-    yards = 3;  field = (rem // 7) + 1;    spread = rem % 7
-```
-
-**Encoding dimensions → `situation_number`** (mirror image; raises on the invalid combo `yards ∈ {2, 3} ∧ field == 0`):
-
-```
-section_start = (minutes * 4 + down) * 126
-
-if yards == 0:
-    within =      field      * 7 + spread
-elif yards == 1:
-    within = 35 + field      * 7 + spread
-elif yards == 2:
-    within = 70 + (field - 1) * 7 + spread
-else:  # yards == 3
-    within = 98 + (field - 1) * 7 + spread
-
-situation_number = section_start + within
-```
-
-`stop_clock` is bit 7 of `weight1` on disk (see section 2.3.3), but in the parsed model it appears as a field on `Situation` rather than on `CategoryWeights` — it's a situation-level flag, not a play-category attribute.
+`stop_clock` is bit 7 of `weight1` on disk (see section 2.3.3); the parsed model carries it as a situation-level flag rather than a property of the weighted picks.
 
 ### 2.4 Field Goal Range (1 byte, data offset `0x3B30`)
 
@@ -196,25 +160,18 @@ situation_number = section_start + within
 
 PAT records do **not** carry a Stop-Clock bit — `weight1` is a plain weight in `[0, 10]`, identical in semantics to `weight2` and `weight3`. The reader rejects PAT records whose `weight1` falls outside `[0, 10]` (no bit-7 masking).
 
-#### 2.5.1 PAT Situation Index Decomposition
+#### 2.5.1 PAT Situation Number Layout
 
-PAT situations vary along only two dimensions (no down, yards-to-go, or field position):
+PAT situations vary along only two game-state buckets (no down, yards-to-go, or field position):
 
-| Dimension          | Cardinality | Buckets (ordered)                                                                                              |
-| :----------------- | ----------: | :------------------------------------------------------------------------------------------------------------- |
-| minutes_remaining  |           4 | `>5`, `>2-5`, `>1-2`, `0-1`                                                                                    |
-| point_spread       |          15 | Ahead by 12+, 9-11, 8, 6-7, 5, 2-4, 1; Tied; Behind by 1, 2, 3-4, 5, 6-8, 9-12, 13+                            |
+| Bucket            | Cardinality | Values (ordered)                                                                    |
+| :---------------- | ----------: | :---------------------------------------------------------------------------------- |
+| minutes_remaining |           4 | `>5`, `>2-5`, `>1-2`, `0-1`                                                         |
+| point_spread      |          15 | Ahead by 12+, 9-11, 8, 6-7, 5, 2-4, 1; Tied; Behind by 1, 2, 3-4, 5, 6-8, 9-12, 13+ |
 
 Dense product: 4 × 15 = 60. No exclusions. PAT minutes collapses the regular-situation `>:15-1` and `0-:15` buckets into a single `0-1` bucket; PAT point-spread uses finer-grained buckets than regular situations (every 1-point difference up to ±8 is distinguished).
 
-**Decoding / encoding** is a straight linear decomposition (no gaps):
-
-```
-minutes = situation_number // 15
-spread  = situation_number  % 15
-
-situation_number = minutes * 15 + spread
-```
+Records are laid out by minutes-remaining (slowest-changing), then point-spread (fastest-changing). A straight linear cross-product, with no exclusions.
 
 ### 2.6 Use Audibles (4 bytes, data offset `0x3C99`)
 
@@ -230,20 +187,20 @@ End of F95 data at offset `0x3C9D` (file offset `0x3CA5`).
 
 ### 3.1 Header (8 bytes)
 
-| Offset | Type    | Name | Description                           |
-| -----: | :------ | :--- | :------------------------------------ |
-| 0x0000 | char[4] | ID   | `"I95:"`                              |
-| 0x0004 | u32     | size | Data size in bytes (always `0x0A`)    |
+| Offset | Type    | Name | Description                        |
+| -----: | :------ | :--- | :--------------------------------- |
+| 0x0000 | char[4] | ID   | `"I95:"`                           |
+| 0x0004 | u32     | size | Data size in bytes (always `0x0A`) |
 
 ### 3.2 Data (10 bytes)
 
-| Offset | Type | Name                  | Description                                                    |
-| -----: | :--- | :-------------------- | :------------------------------------------------------------- |
-|     +0 | u8   | profile_type          | `0` = DEFENSE, `1` = OFFENSE                                   |
-|     +1 | u16  | reserved              | Always `0x0000`                                                |
-|     +3 | u8   | field_goal_range      | Yards `5–50`; mirrors F95's `field_goal_range`                 |
-|     +4 | u16  | num_game_plan_blocks  | Count of embedded game plans; supported profiles have `0` here |
-|     +6 | u32  | use_audibles          | `0` or `1`; mirrors F95's `use_audibles`                       |
+| Offset | Type | Name                 | Description                                                    |
+| -----: | :--- | :------------------- | :------------------------------------------------------------- |
+|     +0 | u8   | profile_type         | `0` = DEFENSE, `1` = OFFENSE                                   |
+|     +1 | u16  | reserved             | Always `0x0000`                                                |
+|     +3 | u8   | field_goal_range     | Yards `5–50`; mirrors F95's `field_goal_range`                 |
+|     +4 | u16  | num_game_plan_blocks | Count of embedded game plans; supported profiles have `0` here |
+|     +6 | u32  | use_audibles         | `0` or `1`; mirrors F95's `use_audibles`                       |
 
 `field_goal_range` and `use_audibles` are stored redundantly in F95 and I95; readers reject mismatches. `num_game_plan_blocks ≠ 0` signals the embedded-game-plans variant (section 4).
 
@@ -265,8 +222,8 @@ Every profile ends with **1 byte (offense)** or **2 bytes (defense)** so the tot
 
 | Profile type | Trailer length | Total file size |
 | :----------- | -------------: | :-------------- |
-| OFFENSE      | 1 byte         | even            |
-| DEFENSE      | 2 bytes        | odd             |
+| OFFENSE      |         1 byte | even            |
+| DEFENSE      |        2 bytes | odd             |
 
 (Bare blocks total `0x3CB7` = odd, so offense pads `+1`, defense pads `+2`.)
 

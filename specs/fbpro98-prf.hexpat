@@ -124,8 +124,9 @@ struct CategoryWeights {
 
 // ---- F95: substitutions, 2520 category-weights records, FG range, 60 PAT records, audibles ----
 //
-// Regular situations array (2520 entries) is indexed by a 5-dimensional bucket
-// product with one structural gap. See prf.md section 2.3.4 for the formulas.
+// Regular situations array (2520 entries) is indexed by situation number, with
+// the position determined by the 5-bucket game-state cross-product and one
+// structural gap. See prf.md section 2.3.4 for the layout.
 //   minutes_remaining (5) x down (4) x yards_to_go (4) x field_position (5) x point_spread (7)
 //   = 5*4*4*5*7 = 2800 dense, minus 280 invalid combos (INSIDE_DEF_5 x yards >= 6) = 2520.
 //

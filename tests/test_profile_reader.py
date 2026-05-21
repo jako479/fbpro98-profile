@@ -91,7 +91,7 @@ def test_off1_substitutions() -> None:
 def test_off1_first_situation() -> None:
     profile = read_profile(_require_fixture(OFF1_PATH))
     situation = profile.situations[0]
-    assert situation.situation_number == 0
+    assert situation.situation_number == 1
     assert situation.stop_clock is False
     assert situation.category_weights == CategoryWeights(
         play_category1=3,
@@ -106,7 +106,7 @@ def test_off1_first_situation() -> None:
 def test_off1_last_situation() -> None:
     profile = read_profile(_require_fixture(OFF1_PATH))
     situation = profile.situations[-1]
-    assert situation.situation_number == 2519
+    assert situation.situation_number == 2520
     assert situation.stop_clock is False
     assert situation.category_weights == CategoryWeights(
         play_category1=5,
@@ -121,7 +121,7 @@ def test_off1_last_situation() -> None:
 def test_off1_first_pat_situation() -> None:
     profile = read_profile(_require_fixture(OFF1_PATH))
     pat = profile.pat_situations[0]
-    assert pat.situation_number == 0
+    assert pat.situation_number == 1
     assert pat.category_weights == CategoryWeights(
         play_category1=5,
         weight1=2,
@@ -137,19 +137,19 @@ def test_off1_stop_clock_situations_count() -> None:
     assert len(profile.stop_clock_situations) == 735
 
 
-def test_off1_first_stop_clock_situation_index() -> None:
+def test_off1_first_stop_clock_situation_number() -> None:
     profile = read_profile(_require_fixture(OFF1_PATH))
-    first_index, first_situation = profile.stop_clock_situations[0]
-    assert first_index == 1015
+    first_situation_number, first_situation = profile.stop_clock_situations[0]
+    assert first_situation_number == 1016
     assert first_situation.stop_clock is True
     assert first_situation.category_weights.play_category1 == 3
     assert first_situation.category_weights.weight1 == 4
 
 
-def test_off1_last_stop_clock_situation_index() -> None:
+def test_off1_last_stop_clock_situation_number() -> None:
     profile = read_profile(_require_fixture(OFF1_PATH))
-    last_index, last_situation = profile.stop_clock_situations[-1]
-    assert last_index == 2498
+    last_situation_number, last_situation = profile.stop_clock_situations[-1]
+    assert last_situation_number == 2499
     assert last_situation.stop_clock is True
 
 
@@ -180,16 +180,16 @@ def test_off2_stop_clock_situations_count() -> None:
     assert len(profile.stop_clock_situations) == 648
 
 
-def test_off2_first_stop_clock_situation_index() -> None:
+def test_off2_first_stop_clock_situation_number() -> None:
     profile = read_profile(_require_fixture(OFF2_PATH))
-    first_index, _ = profile.stop_clock_situations[0]
-    assert first_index == 907
+    first_situation_number, _ = profile.stop_clock_situations[0]
+    assert first_situation_number == 908
 
 
-def test_off2_last_stop_clock_situation_index() -> None:
+def test_off2_last_stop_clock_situation_number() -> None:
     profile = read_profile(_require_fixture(OFF2_PATH))
-    last_index, _ = profile.stop_clock_situations[-1]
-    assert last_index == 2518
+    last_situation_number, _ = profile.stop_clock_situations[-1]
+    assert last_situation_number == 2519
 
 
 # ---------- DEN-DEF1.prf: pinned values ----------
@@ -227,7 +227,7 @@ def test_def1_substitutions() -> None:
 def test_def1_first_situation() -> None:
     profile = read_profile(_require_fixture(DEF1_PATH))
     situation = profile.situations[0]
-    assert situation.situation_number == 0
+    assert situation.situation_number == 1
     assert situation.stop_clock is False
     assert situation.category_weights == CategoryWeights(
         play_category1=7,
@@ -242,7 +242,7 @@ def test_def1_first_situation() -> None:
 def test_def1_first_pat_situation() -> None:
     profile = read_profile(_require_fixture(DEF1_PATH))
     pat = profile.pat_situations[0]
-    assert pat.situation_number == 0
+    assert pat.situation_number == 1
     assert pat.category_weights == CategoryWeights(
         play_category1=1,
         weight1=2,
@@ -284,17 +284,17 @@ def test_def2_stop_clock_situations_count() -> None:
     assert len(profile.stop_clock_situations) == 378
 
 
-def test_def2_first_stop_clock_situation_index() -> None:
+def test_def2_first_stop_clock_situation_number() -> None:
     profile = read_profile(_require_fixture(DEF2_PATH))
-    first_index, first_situation = profile.stop_clock_situations[0]
-    assert first_index == 0
+    first_situation_number, first_situation = profile.stop_clock_situations[0]
+    assert first_situation_number == 1
     assert first_situation.stop_clock is True
     assert first_situation.category_weights.play_category1 == 19
     assert first_situation.category_weights.weight1 == 10
 
 
 def test_def2_first_situation_has_stop_clock_set() -> None:
-    """DEN-DEF2's situation 0 is the only fixture sample with stop_clock at index 0."""
+    """DEN-DEF2's situation 1 is the only fixture sample with stop_clock at the first situation."""
     profile = read_profile(_require_fixture(DEF2_PATH))
     assert profile.situations[0].stop_clock is True
 

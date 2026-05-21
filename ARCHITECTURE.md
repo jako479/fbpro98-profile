@@ -12,14 +12,44 @@ src/fbpro98_profile/
 └── schema.py      # struct format strings for F95/I95 blocks
 ```
 
-`specs/fbpro98-prf.hexpat` and `specs/prf.md` document the on-disk byte layout. The situation-index decomposition (formulas in [prf.md section 2.3.4](specs/prf.md#234-situation-index-decomposition) and [section 2.5.1](specs/prf.md#251-pat-situation-index-decomposition)) is implemented as `Situation.from_index` / `dimensions_from_index` / `index_from_dimensions` and the corresponding `PatSituation` methods in `model.py` — those are the canonical implementations; the reader simply delegates via `Situation.from_index(index, stop_clock, category_weights)`.
+# Standard clean-architecture / DDD layering (Domain Drivern Design)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Consumer code (outside the library — your apps, REPL)      │
+└────────────────────────┬────────────────────────────────────┘
+                         │ calls
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Public API   (outermost layer of OUR library)              │
+│  • read_profile(path), parse_profile(buffer)                │
+│  • Orchestrates the layers below                            │
+│  • Where boundary translation happens: idx + 1 → number     │
+└──────────┬──────────────────────────┬───────────────────────┘
+           │ uses                     │ uses
+           ▼                          ▼
+┌──────────────────────────┐   ┌─────────────────────────────┐
+│  Adapters (middle)       │   │  Domain   (innermost)       │
+│  • schema.py             │   │  model.py:                  │
+│  • reader.py _parse_*    │   │  • Situation, PatSituation, │
+│  • File I/O (stdlib)     │   │    CategoryWeights, Profile │
+│  Vocabulary: bytes,      │   │  • Bucket enums, ProfileType│
+│  offsets, 0-based idx    │   │  Vocabulary: situation_     │
+│                          │   │  number (1-based), buckets  │
+└──────────────────────────┘   └─────────────────────────────┘
+              │                                    ▲
+              | imports / constructs domain types  |
+              └────────────────────────────────────┘
+```
+
+`specs/fbpro98-prf.hexpat` and `specs/prf.md` document the on-disk byte layout. The mapping from situation number to game state (see [prf.md section 2.3.4](specs/prf.md#234-situation-number-layout) and [section 2.5.1](specs/prf.md#251-pat-situation-number-layout)) is owned by the domain — `Situation` and `PatSituation` expose `from_situation_number` factories that derive game state from the 1-based situation number. The reader translates its 0-based array index at the boundary and delegates to those factories; the math itself never leaves the domain.
 
 ## What this package does
 
 - Parses `.prf` files into a typed in-memory model
 - Validates structural correctness (block magics, sizes, redundant F95/I95 fields agree, trailer length and bytes, file-size parity)
 - Exposes a frozen, type-safe model for downstream consumers
-- Decodes the situation-number index into bucket dimensions (minutes remaining, down, yards-to-go, field position, point spread for regular situations; minutes remaining + point spread for PAT) and validates the structural gap (no `INSIDE_DEF_5` × `>=6` yards-to-go)
+- Decodes the situation number into game state (minutes remaining, down, yards-to-go, field position, point spread for regular situations; minutes remaining + point spread for PAT) and validates the structural gap (no `INSIDE_DEF_5` × `>=6` yards-to-go)
 - Exposes `Profile.stop_clock_situations` for retrieving situations with the Stop-Clock flag set
 
 ## What this package does NOT do
@@ -31,6 +61,7 @@ src/fbpro98_profile/
 ## Validation
 
 `InvalidProfileError`:
+
 - Bad block magics or sizes
 - F95/I95 disagree on `field_goal_range` or `use_audibles`
 - `field_goal_range` outside [5, 50]; `use_audibles` not in {0, 1}

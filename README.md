@@ -23,9 +23,9 @@ profile.profile_type           # ProfileType.OFFENSE / DEFENSE
 profile.field_goal_range       # int, 5-50
 profile.use_audibles           # bool
 profile.substitutions          # SubstitutionSettings (8 position groups)
-profile.category_weights       # tuple of 2520 CategoryWeights — one per situation
-profile.pat_category_weights   # tuple of 60 CategoryWeights — one per PAT situation
-profile.stop_clock_situations  # ((index, CategoryWeights), ...) — situations with Stop-Clock set
+profile.situations             # tuple of 2520 Situation — one per game situation
+profile.pat_situations         # tuple of 60 PatSituation — one per PAT situation
+profile.stop_clock_situations  # ((situation_number, Situation), ...) — situations with Stop-Clock set
 ```
 
 `parse_profile(buffer)` is the bytes-in entry point; `read_profile` wraps file I/O.

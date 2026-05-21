@@ -169,12 +169,12 @@ class Situation:
     corresponding play-calling rules: three weighted play categories and whether the
     clock should be stopped such as by timeout or spiking the ball.
 
-    `situation_number` is the file's 0-based index into the situations array and is
-    structurally determined by the five bucket dimensions; construction validates
-    that all six are mutually consistent.
+    `situation_number` is the situation's domain identifier (1-based, 1..2520);
+    its game state is structurally determined by it. Construction validates
+    that all six values are mutually consistent.
     """
 
-    situation_number: int
+    situation_number: int  # 1-based (1..2520)
 
     # Game situation
     minutes_remaining: MinutesRemaining  # Minutes remaining in the half bucket
@@ -188,9 +188,9 @@ class Situation:
     category_weights: CategoryWeights
 
     def __post_init__(self) -> None:
-        if not 0 <= self.situation_number < 2520:
-            raise ValueError(f"situation_number must be in [0, 2520), got {self.situation_number}")
-        expected = self.index_from_dimensions(
+        if not 1 <= self.situation_number <= 2520:
+            raise ValueError(f"situation_number must be in [1, 2520), got {self.situation_number}")
+        expected = self._situation_number_from_game_state(
             self.minutes_remaining,
             self.down,
             self.yards_to_go,
@@ -199,18 +199,18 @@ class Situation:
         )
         if expected != self.situation_number:
             raise ValueError(
-                f"situation_number {self.situation_number} does not match dimensions (expected {expected})"
+                f"situation_number {self.situation_number} does not match game state (expected {expected})"
             )
 
     @classmethod
-    def from_index(
+    def from_situation_number(
         cls,
         situation_number: int,
         stop_clock: bool,
         category_weights: CategoryWeights,
     ) -> Situation:
-        """Build a Situation by decoding situation_number into bucket dimensions."""
-        minutes, down, yards, field, spread = cls.dimensions_from_index(situation_number)
+        """Build a Situation by decoding situation_number into its game state."""
+        minutes, down, yards, field, spread = cls._game_state_from_situation_number(situation_number)
         return cls(
             situation_number=situation_number,
             minutes_remaining=minutes,
@@ -223,18 +223,21 @@ class Situation:
         )
 
     @staticmethod
-    def dimensions_from_index(
+    def _game_state_from_situation_number(
         situation_number: int,
     ) -> tuple[MinutesRemaining, Down, YardsToGo, FieldPosition, PointSpread]:
-        """Decode situation_number into the five bucket dimensions.
+        """Decode situation_number into the five game-state buckets.
 
-        Raises ValueError if situation_number is outside [0, 2520).
+        Raises ValueError if situation_number is outside [1, 2520].
         """
-        if not 0 <= situation_number < 2520:
-            raise ValueError(f"situation_number must be in [0, 2520), got {situation_number}")
+        if not 1 <= situation_number <= 2520:
+            raise ValueError(f"situation_number must be in [1, 2520], got {situation_number}")
 
-        minutes_idx = situation_number // 504
-        rem = situation_number % 504
+        # Convert 1-based situation_number to 0-based offset for the math, then
+        # decode by peeling off each bucket largest-stride-first.
+        offset = situation_number - 1
+        minutes_idx = offset // 504
+        rem = offset % 504
         down_idx = rem // 126  # 0-based
         rem = rem % 126
 
@@ -259,14 +262,14 @@ class Situation:
         )
 
     @staticmethod
-    def index_from_dimensions(
+    def _situation_number_from_game_state(
         minutes_remaining: MinutesRemaining,
         down: Down,
         yards_to_go: YardsToGo,
         field_position: FieldPosition,
         point_spread: PointSpread,
     ) -> int:
-        """Encode the five bucket dimensions into situation_number.
+        """Encode the five game-state buckets into situation_number.
 
         Raises ValueError on the structurally-invalid combo (6-10 or >10
         yards-to-go from inside the DEF 5).
@@ -288,7 +291,8 @@ class Situation:
         else:  # yards_idx == 3
             within = 98 + (field_idx - 1) * 7 + point_spread.value
 
-        return section_start + within
+        # Math yields a 0-based offset; situation_number is 1-based.
+        return section_start + within + 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -298,9 +302,9 @@ class PatSituation:
     PAT situations vary only by minutes remaining and point spread — down,
     yards-to-go, field position, and stop_clock don't apply.
 
-    `situation_number` is the file's 0-based index into the PAT situations array
-    and is structurally determined by the two bucket dimensions; construction
-    validates that the three values are mutually consistent.
+    `situation_number` is the PAT situation's domain identifier (1-based, 1..60);
+    its game state is structurally determined by it. Construction validates that
+    the three values are mutually consistent.
     """
 
     situation_number: int
@@ -313,22 +317,22 @@ class PatSituation:
     category_weights: CategoryWeights
 
     def __post_init__(self) -> None:
-        if not 0 <= self.situation_number < 60:
-            raise ValueError(f"situation_number must be in [0, 60), got {self.situation_number}")
-        expected = self.index_from_dimensions(self.minutes_remaining, self.point_spread)
+        if not 1 <= self.situation_number <= 60:
+            raise ValueError(f"situation_number must be in [1, 60], got {self.situation_number}")
+        expected = self._situation_number_from_game_state(self.minutes_remaining, self.point_spread)
         if expected != self.situation_number:
             raise ValueError(
-                f"situation_number {self.situation_number} does not match dimensions (expected {expected})"
+                f"situation_number {self.situation_number} does not match game state (expected {expected})"
             )
 
     @classmethod
-    def from_index(
+    def from_situation_number(
         cls,
         situation_number: int,
         category_weights: CategoryWeights,
     ) -> PatSituation:
-        """Build a PatSituation by decoding situation_number into bucket dimensions."""
-        minutes, spread = cls.dimensions_from_index(situation_number)
+        """Build a PatSituation by decoding situation_number into its game state."""
+        minutes, spread = cls._game_state_from_situation_number(situation_number)
         return cls(
             situation_number=situation_number,
             minutes_remaining=minutes,
@@ -337,24 +341,25 @@ class PatSituation:
         )
 
     @staticmethod
-    def dimensions_from_index(situation_number: int) -> tuple[PatMinutesRemaining, PatPointSpread]:
-        """Decode situation_number into the two PAT bucket dimensions.
+    def _game_state_from_situation_number(situation_number: int) -> tuple[PatMinutesRemaining, PatPointSpread]:
+        """Decode situation_number into the two PAT game-state buckets.
 
-        Raises ValueError if situation_number is outside [0, 60).
+        Raises ValueError if situation_number is outside [1, 60].
         """
-        if not 0 <= situation_number < 60:
-            raise ValueError(f"situation_number must be in [0, 60), got {situation_number}")
-        minutes_idx = situation_number // 15
-        spread_idx = situation_number % 15
+        if not 1 <= situation_number <= 60:
+            raise ValueError(f"situation_number must be in [1, 60], got {situation_number}")
+        offset = situation_number - 1
+        minutes_idx = offset // 15
+        spread_idx = offset % 15
         return PatMinutesRemaining(minutes_idx), PatPointSpread(spread_idx)
 
     @staticmethod
-    def index_from_dimensions(
+    def _situation_number_from_game_state(
         minutes_remaining: PatMinutesRemaining,
         point_spread: PatPointSpread,
     ) -> int:
-        """Encode the two PAT bucket dimensions into situation_number."""
-        return minutes_remaining.value * 15 + point_spread.value
+        """Encode the two PAT game-state buckets into situation_number."""
+        return minutes_remaining.value * 15 + point_spread.value + 1
 
 
 # Display-name lookup sets per specs/prf.md section 2.3.2. These describe which
@@ -448,14 +453,13 @@ class Profile:
 
     @property
     def stop_clock_situations(self) -> tuple[tuple[int, Situation], ...]:
-        """Return `(situation_index, Situation)` pairs for every situation with stop_clock set.
+        """Return `(situation_number, Situation)` pairs for every situation with stop_clock set.
 
-        Indexes refer to positions within `self.situations` (the 2520 regular
-        game-state situations). PAT situations are not included since they have
-        no stop_clock concept.
+        Only the 2520 regular game-state situations are inspected. PAT situations
+        are not included since they have no stop_clock concept.
 
         Returns:
-            Tuple of `(situation_index, Situation)` pairs for situations where
-            `stop_clock` is True, in ascending index order.
+            Tuple of `(situation_number, Situation)` pairs for situations where
+            `stop_clock` is True, in ascending situation_number order.
         """
-        return tuple((index, situation) for index, situation in enumerate(self.situations) if situation.stop_clock)
+        return tuple((s.situation_number, s) for s in self.situations if s.stop_clock)
