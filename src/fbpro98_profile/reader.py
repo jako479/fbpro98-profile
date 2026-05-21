@@ -307,9 +307,7 @@ def _validate_trailer(buffer: bytes, body_end: int, profile_type: ProfileType, p
     for offset in range(body_end, len(buffer)):
         byte = buffer[offset]
         if byte not in VALID_TRAILER_BYTES:
-            raise InvalidProfileError(
-                f"Trailer byte at {offset:#x} is {byte:#04x}; only 0x00 (saved) or 0x69 (stock) accepted in {path}"
-            )
+            raise InvalidProfileError(f"Trailer byte at {offset:#x} is {byte:#04x}; only 0x00 accepted in {path}")
 
     expected_parity = 0 if profile_type == ProfileType.OFFENSE else 1
     if len(buffer) % 2 != expected_parity:

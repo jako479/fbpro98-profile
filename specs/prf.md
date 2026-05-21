@@ -227,14 +227,7 @@ Every profile ends with **1 byte (offense)** or **2 bytes (defense)** so the tot
 
 (Bare blocks total `0x3CB7` = odd, so offense pads `+1`, defense pads `+2`.)
 
-Trailer byte values:
-
-| Value          | Meaning                              |
-| :------------- | :----------------------------------- |
-| `0x00` (NUL)   | Player-saved (the writer emits NULs) |
-| `0x69` (`'i'`) | Stock/factory profile                |
-
-Defense stock profiles use `0x69 0x69` (`"ii"`); offense stock uses a single `0x69`. The reader accepts either; the writer always emits NULs (round-tripping a stock file normalizes its trailer).
+Trailer bytes must be `0x00` (NUL). Stock/factory profiles use `0x69` (a single byte for offense, `0x69 0x69` for defense), but those profiles are independently rejected at the F95 size check (section 4); the trailer code path never reaches them. The reader rejects `0x69` trailers; the writer always emits NULs.
 
 ---
 
@@ -252,7 +245,7 @@ Reader raises `InvalidProfileError` for:
 - Category-weights `play_category ∉ [0x00, 0x1A]` (no side-specific subset enforced)
 - Category-weights `weight ∉ [0, 10]` (after masking the Stop-Clock bit on `weight1`)
 - Trailer length ≠ 1 (offense) or 2 (defense)
-- Trailer byte ∉ {`0x00`, `0x69`}
+- Trailer byte ≠ `0x00`
 - File-size parity wrong for profile type
 
 Profiles with embedded game plans (section 4) raise `UnsupportedProfileError` instead.
@@ -263,7 +256,7 @@ Profiles with embedded game plans (section 4) raise `UnsupportedProfileError` in
 
 - F95: fixed `0x3C9D` data size; recompute all sub-section bytes from the model.
 - I95: fixed `0x0A` data size; mirror `field_goal_range` and `use_audibles` from F95; `reserved = 0`; `num_game_plan_blocks = 0`.
-- `weight1`: pack the Stop-Clock flag into bit 7; clear bit 7 on `weight2` / `weight3`.
-- Trailer: 1 NUL (offense) or 2 NULs (defense). Stock `0x69` bytes are not preserved.
+- Regular-situation `weight1`: pack the Stop-Clock flag into bit 7; clear bit 7 on `weight2` / `weight3`. PAT-situation weights carry no Stop-Clock bit.
+- Trailer: 1 NUL (offense) or 2 NULs (defense).
 
-Never emits embedded game plan blocks (section 4).
+Never emits embedded game plan blocks (section 4) or the stock layout (section 4 / F95 size variants).

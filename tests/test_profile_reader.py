@@ -498,13 +498,21 @@ def test_invalid_trailer_byte_raises(tmp_path):
         read_profile(profile_path)
 
 
-def test_stock_trailer_byte_accepted(tmp_path):
+def test_stock_trailer_byte_rejected(tmp_path):
     data = _load_fixture_bytes(OFF1_PATH)
     data[-1] = 0x69
     profile_path = tmp_path / "stock_trailer.prf"
     profile_path.write_bytes(data)
-    profile = read_profile(profile_path)
-    assert profile.is_offense
+    with pytest.raises(InvalidProfileError, match="Trailer byte"):
+        read_profile(profile_path)
+
+
+def test_real_stock_profile_rejected() -> None:
+    stock_path = TEST_DATA_DIR / "stock_profiles" / "OFF1.PRF"
+    if not stock_path.is_file():
+        pytest.skip(f"Missing real stock fixture: {stock_path}")
+    with pytest.raises(UnsupportedProfileError, match="Stock layout"):
+        read_profile(stock_path)
 
 
 def test_wrong_trailer_length_raises(tmp_path):

@@ -2,8 +2,6 @@
 
 Library for reading and writing Front Page Sports Football Pro '98 coaching profile (`.prf`) files.
 
-Parsing is implemented; the write/update API is not yet exposed.
-
 ## Setup
 
 ```bash
@@ -15,7 +13,7 @@ pip install -e ".[dev]"
 ## Usage
 
 ```python
-from fbpro98_profile import read_profile
+from fbpro98_profile import read_profile, write_profile
 
 profile = read_profile("DEN-OFF1.prf")
 
@@ -23,12 +21,17 @@ profile.profile_type           # ProfileType.OFFENSE / DEFENSE
 profile.field_goal_range       # int, 5-50
 profile.use_audibles           # bool
 profile.substitutions          # SubstitutionSettings (8 position groups)
-profile.situations             # tuple of 2520 Situation — one per game situation
-profile.pat_situations         # tuple of 60 PatSituation — one per PAT situation
+profile.situations             # tuple of 2520 Situation
+profile.pat_situations         # tuple of 60 PatSituation
 profile.stop_clock_situations  # ((situation_number, Situation), ...) — situations with Stop-Clock set
+
+# Save back to disk (update in place or write new path)
+import dataclasses
+modified = dataclasses.replace(profile, field_goal_range=45)
+write_profile(modified, "DEN-OFF1.prf")
 ```
 
-`parse_profile(buffer)` is the bytes-in entry point; `read_profile` wraps file I/O.
+`parse_profile(buffer)` is the bytes-in entry point; `build_profile_bytes(profile)` is the bytes-out entry point. `read_profile` and `write_profile` wrap file I/O.
 
 ## Unsupported variants
 

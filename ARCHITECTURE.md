@@ -1,82 +1,40 @@
 # fbpro98-profile — Architecture
 
-Library that owns the FbPro '98 `.prf` coaching profile binary file format — for reading and writing `.prf` files. The write API is not yet exposed.
+Library that owns the FbPro '98 `.prf` coaching profile binary file format — reading and writing.
 
 ## Module layout
 
 ```
 src/fbpro98_profile/
 ├── __init__.py    # public API re-exports
-├── model.py       # Profile, Situation, PatSituation, CategoryWeights, bucket enums, SubstitutionSettings, SubstitutionPair, ProfileType
-├── reader.py      # parse_profile, read_profile, InvalidProfileError, UnsupportedProfileError
-└── schema.py      # struct format strings for F95/I95 blocks
+├── model.py       # Profile, Situation, PatSituation, CategoryWeights,
+│                  # SubstitutionSettings/Pair, ProfileType, bucket enums
+├── schema.py      # struct.Struct layouts and block IDs for F95/I95
+├── reader.py      # read_profile / parse_profile; InvalidProfileError, UnsupportedProfileError
+└── writer.py      # write_profile / build_profile_bytes
 ```
 
-# Standard clean-architecture / DDD layering (Domain Drivern Design)
+The domain (`model.py`) owns the situation-number ↔ game-state mapping (see [specs/prf.md section 2.3.4](specs/prf.md#234-situation-number-layout) and [section 2.5.1](specs/prf.md#251-pat-situation-number-layout)); `Situation.from_situation_number` and `PatSituation.from_situation_number` are the factories. The reader translates its 0-based array index at the boundary (`idx + 1`) and delegates; the math itself never leaves the domain.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Consumer code (outside the library — your apps, REPL)      │
-└────────────────────────┬────────────────────────────────────┘
-                         │ calls
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Public API   (outermost layer of OUR library)              │
-│  • read_profile(path), parse_profile(buffer)                │
-│  • Orchestrates the layers below                            │
-│  • Where boundary translation happens: idx + 1 → number     │
-└──────────┬──────────────────────────┬───────────────────────┘
-           │ uses                     │ uses
-           ▼                          ▼
-┌──────────────────────────┐   ┌─────────────────────────────┐
-│  Adapters (middle)       │   │  Domain   (innermost)       │
-│  • schema.py             │   │  model.py:                  │
-│  • reader.py _parse_*    │   │  • Situation, PatSituation, │
-│  • File I/O (stdlib)     │   │    CategoryWeights, Profile │
-│  Vocabulary: bytes,      │   │  • Bucket enums, ProfileType│
-│  offsets, 0-based idx    │   │  Vocabulary: situation_     │
-│                          │   │  number (1-based), buckets  │
-└──────────────────────────┘   └─────────────────────────────┘
-              │                                    ▲
-              | imports / constructs domain types  |
-              └────────────────────────────────────┘
-```
-
-`specs/fbpro98-prf.hexpat` and `specs/prf.md` document the on-disk byte layout. The mapping from situation number to game state (see [prf.md section 2.3.4](specs/prf.md#234-situation-number-layout) and [section 2.5.1](specs/prf.md#251-pat-situation-number-layout)) is owned by the domain — `Situation` and `PatSituation` expose `from_situation_number` factories that derive game state from the 1-based situation number. The reader translates its 0-based array index at the boundary and delegates to those factories; the math itself never leaves the domain.
+`reader.py` and `writer.py` are pure functions of the model and schema — they share no state, only types. Round-trip byte identity is enforced by tests against four game-produced `DEN-*.prf` fixtures.
 
 ## What this package does
 
-- Parses `.prf` files into a typed in-memory model
-- Validates structural correctness (block magics, sizes, redundant F95/I95 fields agree, trailer length and bytes, file-size parity)
-- Exposes a frozen, type-safe model for downstream consumers
-- Decodes the situation number into game state (minutes remaining, down, yards-to-go, field position, point spread for regular situations; minutes remaining + point spread for PAT) and validates the structural gap (no `INSIDE_DEF_5` × `>=6` yards-to-go)
-- Exposes `Profile.stop_clock_situations` for retrieving situations with the Stop-Clock flag set
+- Reads `.prf` files into a typed in-memory model and writes them back, including in-place updates of existing files and from-scratch construction.
+- Validates structural correctness on read (block magics, sizes, redundant F95/I95 agreement, trailer length and bytes, file-size parity).
+- Decodes situation numbers into game-state buckets; exposes `Profile.stop_clock_situations` for situations with the Stop-Clock flag set.
 
 ## What this package does NOT do
 
-- Write profiles (write API not yet implemented)
-- Handle the older "stock" on-disk layout — `F95.size` ∈ {`0x3F69`, `0x4509`} → `UnsupportedProfileError`
-- Handle profiles saved with embedded game plans — `I95.num_game_plan_blocks ≠ 0` or G95/J95/S98 magic after I95 → `UnsupportedProfileError`
+- Handle the older "stock" on-disk layout — `F95.size` ∈ {`0x3F69`, `0x4509`} → `UnsupportedProfileError`.
+- Handle profiles saved with embedded game plans — `I95.num_game_plan_blocks ≠ 0` or G95/J95/S98 magic after I95 → `UnsupportedProfileError`.
 
-## Validation
-
-`InvalidProfileError`:
-
-- Bad block magics or sizes
-- F95/I95 disagree on `field_goal_range` or `use_audibles`
-- `field_goal_range` outside [5, 50]; `use_audibles` not in {0, 1}
-- Substitution pair violates `0 ≤ out ≤ in ≤ 100`
-- Regular-situation `weight` outside [0, 10] (after masking off Stop-Clock bit on weight1)
-- PAT-situation `weight1` outside [0, 10] (no Stop-Clock bit masking on PAT side)
-- Category-weights `play_category` outside [0x00, 0x1A]
-- Trailer not exactly 1 byte (offense) / 2 bytes (defense), or any trailer byte not in {0x00, 0x69}
-- File-size parity wrong for profile type
-
-`UnsupportedProfileError`: stock-layout files; profiles with embedded game plans.
+See [specs/prf.md](specs/prf.md) sections 6-7 for the full reader validation and writer contract.
 
 ## Testing
 
-- `tests/test_profile_model.py` — model invariants on synthesized instances
-- `tests/test_profile_reader.py` — real-fixture parsing pinned against expected metadata, plus structural-error paths
+- `tests/test_profile_model.py` — model invariants on synthesized instances.
+- `tests/test_profile_reader.py` — real-fixture parsing pinned against expected metadata; structural-error paths.
+- `tests/test_profile_writer.py` — round-trip byte identity, mutation, and from-scratch construction.
 
-The fixture `.prf` files in `tests/data/` are game-produced — authoritative for any wire-format question.
+Fixtures in `tests/data/` are game-produced and authoritative for any wire-format question. `tests/data/stock_profiles/` holds real game-shipped stock profiles used only to confirm rejection.

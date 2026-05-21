@@ -1,8 +1,4 @@
-"""Library for parsing and editing a Front Page Sports Football Pro '98 coaching profile (.prf).
-
-The write/update API is not yet exposed while the shape of mutation operations
-is being designed.
-"""
+"""Library for parsing and editing a Front Page Sports Football Pro '98 coaching profile (.prf)."""
 
 from fbpro98_profile.model import (
     DEFENSE_DISPLAY_CATEGORIES,
@@ -28,6 +24,10 @@ from fbpro98_profile.reader import (
     parse_profile,
     read_profile,
 )
+from fbpro98_profile.writer import (
+    build_profile_bytes,
+    write_profile,
+)
 
 __all__ = [
     "DEFENSE_DISPLAY_CATEGORIES",
@@ -48,6 +48,8 @@ __all__ = [
     "SubstitutionSettings",
     "UnsupportedProfileError",
     "YardsToGo",
+    "build_profile_bytes",
     "parse_profile",
     "read_profile",
+    "write_profile",
 ]
