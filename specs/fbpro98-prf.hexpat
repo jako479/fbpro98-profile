@@ -6,8 +6,8 @@
 // - Enum BLOCK_TYPE values in the .hsl were string literals ("F95:", etc.)
 //   ImHex doesn't support enum string literals
 // - A profile saved without game plans is F95 + I95 + trailer.
-//   A profile saved with game plans appends one or more G95 + J95 + S98 trios
-//   before the trailer; I95.numGamePlanBlocks is believed to be the count.
+//   A profile saved with game plans appends one G95 + S98 before the trailer
+//   I95.numGamePlanBlocks is believed to be the count.
 // - Trailer is always 1 byte (offense) or 2 bytes (defense) so that the total
 //   file size is even (offense) or odd (defense). Trailer bytes are 0x00 in
 //   player-saved profiles and 0x69 ('i') in the game's stock profiles.
@@ -22,7 +22,6 @@ enum BlockType : u32 {
     F95 = 0x3A353946,  // "F95:"
     G95 = 0x3A353947,  // "G95:"
     I95 = 0x3A353949,  // "I95:"
-    J95 = 0x3A35394A,  // "J95:"
     S98 = 0x3A383953   // "S98:"
 };
 
@@ -210,20 +209,6 @@ struct G95 {
     std::assert(id == BlockType::G95, "Invalid block ID");
 };
 
-// ---- J95: embedded game plan stats (header + 7-byte data) ----
-struct J95 {
-    BlockType   id;   // "J95:"
-    u32         len;  // data length (excludes id+len) // 0x07
-
-    ProfileType profileType;    // 0=DEFENSE, 1=OFFENSE
-    u16         numCustomPlays;
-    u16         numStockPlays;
-    u16         numSpecialPlays;
-
-    std::assert(id == BlockType::J95, "Invalid block ID");
-    std::assert(len == 7, "Invalid data length");
-};
-
 // ---- S98: embedded game plan map filename (length-prefixed) ----
 struct S98 {
     BlockType id;   // "S98:"
@@ -237,20 +222,21 @@ struct S98 {
 // ---- One embedded game plan trio ----
 struct GamePlan {
     G95 g95;
-    J95 j95;
     S98 s98;
 };
 
 // ---- Top-level file ----
 struct PrfFile {
     F95 f95;    // 0x0000
-    I95 i95;    // 0x3CA5
 
-    // Profiles saved with game plans append one G95+J95+S98 trio per plan.
-    if (i95.numGamePlanBlocks > 0) {
-        GamePlan gamePlans[i95.numGamePlanBlocks];
+    BlockType nextBlock @ $;   // peek next 4 bytes without consuming
+    if (nextBlock == BlockType::G95) {
+        GamePlan gamePlan;
     }
+
+    I95 i95;    // 0x3CA5
 };
 
 
 PrfFile prffile_at_0x00 @ 0x00;
+

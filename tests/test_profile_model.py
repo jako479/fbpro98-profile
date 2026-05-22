@@ -209,7 +209,7 @@ def test_situation_rejects_out_of_range_situation_number() -> None:
         Situation._game_state_from_situation_number(0)
 
 
-def test_situation_rejects_invalid_combo() -> None:
+def test_situation_rejects_six_to_ten_yards_inside_def_5() -> None:
     """6-10 yards-to-go from inside DEF 5 is structurally invalid."""
     with pytest.raises(ValueError, match="invalid combo"):
         Situation._situation_number_from_game_state(
@@ -221,7 +221,8 @@ def test_situation_rejects_invalid_combo() -> None:
         )
 
 
-def test_situation_rejects_invalid_combo_over_ten() -> None:
+def test_situation_rejects_over_ten_yards_inside_def_5() -> None:
+    """>10 yards-to-go from inside DEF 5 is structurally invalid."""
     with pytest.raises(ValueError, match="invalid combo"):
         Situation._situation_number_from_game_state(
             MinutesRemaining.OVER_FIVE,

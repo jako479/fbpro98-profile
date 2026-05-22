@@ -260,6 +260,10 @@ def _parse_i95(buffer: bytes, i95_start: int, path: Path) -> tuple[ProfileType, 
         raise InvalidProfileError(f"File too small to contain I95 block in {path}")
 
     block_id, data_size = I95_HEADER.unpack_from(buffer, i95_start)
+    if block_id in (ID_G95, ID_J95, ID_S98):
+        raise UnsupportedProfileError(
+            f"Embedded game plan block '{block_id.decode('ASCII')}' before I95 not supported in {path}"
+        )
     if block_id != ID_I95:
         block_id_str = block_id.decode("ASCII", errors="replace")
         raise InvalidProfileError(f"Invalid header '{block_id_str}' at {i95_start:#x} in {path}")

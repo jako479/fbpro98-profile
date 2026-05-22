@@ -1,9 +1,9 @@
 """Writer tests pinned against real game-produced fixtures.
 
-The four `DEN-*.prf` fixtures are the authoritative byte-level ground truth.
+The `TST-*.prf` fixtures are the authoritative byte-level ground truth.
 Writer correctness is established primarily by byte-identical round-trip
 (`read_profile` → `write_profile` → compare to original bytes) across all
-four fixtures.
+fixtures.
 """
 
 from __future__ import annotations
@@ -36,11 +36,13 @@ from fbpro98_profile.schema import (
 )
 
 TEST_DATA_DIR = Path(__file__).resolve().parent / "data"
-OFF1_PATH = TEST_DATA_DIR / "DEN-OFF1.prf"
-OFF2_PATH = TEST_DATA_DIR / "DEN-OFF2.prf"
-DEF1_PATH = TEST_DATA_DIR / "DEN-DEF1.prf"
-DEF2_PATH = TEST_DATA_DIR / "DEN-DEF2.prf"
-ALL_FIXTURES = [OFF1_PATH, OFF2_PATH, DEF1_PATH, DEF2_PATH]
+OFF1_PATH = TEST_DATA_DIR / "TST-OFF1.prf"
+OFF2_PATH = TEST_DATA_DIR / "TST-OFF2.prf"
+DEF1_PATH = TEST_DATA_DIR / "TST-DEF1.prf"
+DEF2_PATH = TEST_DATA_DIR / "TST-DEF2.prf"
+OFF1_AUD_PATH = TEST_DATA_DIR / "TST-OFF1-AUD.prf"
+DEF1_AUD_PATH = TEST_DATA_DIR / "TST-DEF1-AUD.prf"
+ALL_FIXTURES = [OFF1_PATH, OFF2_PATH, DEF1_PATH, DEF2_PATH, OFF1_AUD_PATH, DEF1_AUD_PATH]
 
 F95_SITUATIONS_OFFSET = F95_HEADER.size + F95_SUBSTITUTIONS.size  # 0x28
 PAT_REGION_OFFSET = F95_SITUATIONS_OFFSET + Profile.NUMBER_SITUATIONS * 6 + 1  # +FG range byte
@@ -158,17 +160,21 @@ def test_defense_trailer_two_nuls(tmp_path: Path) -> None:
 # ---------- Stop-Clock bit packing ----------
 
 
-def test_stop_clock_bit_set_on_situation_1_weight1(tmp_path: Path) -> None:
-    """DEN-DEF2 has stop_clock=True at situation 1 (weight1=10)."""
+def test_stop_clock_bit_set_on_situation_372_weight1(tmp_path: Path) -> None:
+    """TST-DEF2 has stop_clock=True at situation 372 (weight1=2); the bit must pack into the weight1 byte."""
+    EXPECTED_SITUATION_NUMBER = 372
+    EXPECTED_WEIGHT1 = 2
     profile = read_profile(_require_fixture(DEF2_PATH))
-    assert profile.situations[0].stop_clock is True
-    expected_weight = profile.situations[0].category_weights.weight1
+    situation = profile.situations[EXPECTED_SITUATION_NUMBER - 1]
+    assert situation.stop_clock is True
+    assert situation.category_weights.weight1 == EXPECTED_WEIGHT1
     out_path = tmp_path / "out.prf"
     write_profile(profile, out_path)
     buf = out_path.read_bytes()
-    weight1_byte = buf[F95_SITUATIONS_OFFSET + 1]
+    weight1_offset = F95_SITUATIONS_OFFSET + (EXPECTED_SITUATION_NUMBER - 1) * 6 + 1
+    weight1_byte = buf[weight1_offset]
     assert (weight1_byte & STOP_CLOCK_BIT) != 0
-    assert (weight1_byte & 0x7F) == expected_weight
+    assert (weight1_byte & 0x7F) == EXPECTED_WEIGHT1
 
 
 def test_pat_weight1_no_stop_clock_bit_set(tmp_path: Path) -> None:
@@ -182,8 +188,9 @@ def test_pat_weight1_no_stop_clock_bit_set(tmp_path: Path) -> None:
         assert (buf[weight1_offset] & STOP_CLOCK_BIT) == 0, f"PAT record {i} weight1 has bit 7 set"
 
 
-def test_i95_mirrors_f95_field_goal_range_and_use_audibles(tmp_path: Path) -> None:
-    profile = read_profile(_require_fixture(OFF1_PATH))
+@pytest.mark.parametrize("fixture_path", [OFF1_PATH, OFF1_AUD_PATH], ids=lambda p: p.stem)
+def test_i95_mirrors_f95_field_goal_range_and_use_audibles(tmp_path: Path, fixture_path: Path) -> None:
+    profile = read_profile(_require_fixture(fixture_path))
     out_path = tmp_path / "out.prf"
     write_profile(profile, out_path)
     reparsed = read_profile(out_path)
@@ -213,23 +220,18 @@ def test_round_trip_modified_use_audibles(tmp_path: Path) -> None:
     assert reloaded.use_audibles is not original.use_audibles
 
 
-def test_round_trip_modified_stop_clock_on_situation_1(tmp_path: Path) -> None:
-    """Flip stop_clock on situation 1 of DEN-DEF1 (which has zero stop_clocks)."""
-    original = read_profile(_require_fixture(DEF1_PATH))
-    assert original.situations[0].stop_clock is False
+# ---------- use_audibles round-trips on real audible-enabled fixtures ----------
 
-    new_situation_0 = dataclasses.replace(original.situations[0], stop_clock=True)
-    new_situations = (new_situation_0, *original.situations[1:])
-    modified = dataclasses.replace(original, situations=new_situations)
 
+@pytest.mark.parametrize("fixture_path", [OFF1_AUD_PATH, DEF1_AUD_PATH], ids=lambda p: p.stem)
+def test_use_audibles_preserved_on_round_trip(tmp_path: Path, fixture_path: Path) -> None:
+    """Reading and writing a use_audibles=True fixture must not silently clear the flag."""
+    original = read_profile(_require_fixture(fixture_path))
+    assert original.use_audibles is True
     out_path = tmp_path / "out.prf"
-    write_profile(modified, out_path)
+    write_profile(original, out_path)
     reloaded = read_profile(out_path)
-    assert reloaded.situations[0].stop_clock is True
-
-    buf = out_path.read_bytes()
-    weight1_byte = buf[F95_SITUATIONS_OFFSET + 1]
-    assert (weight1_byte & STOP_CLOCK_BIT) != 0
+    assert reloaded.use_audibles is True
 
 
 # ---------- workflow tests: update existing / write new ----------
@@ -277,7 +279,7 @@ def test_write_new_defense_from_scratch(tmp_path: Path) -> None:
     assert buf[-2:] == b"\x00\x00"
 
 
-@pytest.mark.parametrize("fixture_path", [OFF1_PATH, OFF2_PATH], ids=lambda p: p.stem)
+@pytest.mark.parametrize("fixture_path", [OFF1_PATH, OFF2_PATH, OFF1_AUD_PATH], ids=lambda p: p.stem)
 def test_reconstructed_offense_matches_fixture_bytes(tmp_path: Path, fixture_path: Path) -> None:
     original = read_profile(_require_fixture(fixture_path))
     reconstructed = Profile(
@@ -293,7 +295,7 @@ def test_reconstructed_offense_matches_fixture_bytes(tmp_path: Path, fixture_pat
     assert out_path.read_bytes() == fixture_path.read_bytes()
 
 
-@pytest.mark.parametrize("fixture_path", [DEF1_PATH, DEF2_PATH], ids=lambda p: p.stem)
+@pytest.mark.parametrize("fixture_path", [DEF1_PATH, DEF2_PATH, DEF1_AUD_PATH], ids=lambda p: p.stem)
 def test_reconstructed_defense_matches_fixture_bytes(tmp_path: Path, fixture_path: Path) -> None:
     original = read_profile(_require_fixture(fixture_path))
     reconstructed = Profile(
